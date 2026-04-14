@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PitchSense — WebSocket Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        h1 { color: #818cf8; margin-bottom: 1rem; font-size: 1.5rem; }
+        .status {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .connected { background: #064e3b; color: #34d399; }
+        .disconnected { background: #7f1d1d; color: #f87171; }
+        #log {
+            background: #111118;
+            border: 1px solid #2d2d3d;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            margin-bottom: 1rem;
+        }
+        .log-entry { margin-bottom: 0.5rem; }
+        .log-entry .time { color: #6366f1; }
+        .log-entry .dir { font-weight: bold; }
+        .dir-send { color: #f59e0b; }
+        .dir-recv { color: #34d399; }
+        .controls {
+            display: flex;
+            gap: 0.75rem;
+        }
+        input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            background: #111118;
+            border: 1px solid #2d2d3d;
+            border-radius: 0.5rem;
+            color: #e0e0e0;
+            font-size: 0.9rem;
+        }
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.97); }
+        .btn-send { background: #6366f1; color: white; }
+        .btn-connect { background: #059669; color: white; }
+    </style>
+</head>
+<body>
+    <h1>🎯 PitchSense — WebSocket Test</h1>
+    <div id="status" class="status disconnected">● Disconnected</div>
+    <div id="log"></div>
+    <div class="controls">
+        <input id="message" type="text" placeholder="Type a pitch to test..." />
+        <button class="btn-send" onclick="sendPitch()">Send Pitch</button>
+        <button class="btn-connect" onclick="connectWs()">Connect</button>
+    </div>
+
+    <script>
+        let ws = null;
+        const sessionId = crypto.randomUUID();
+        const logEl = document.getElementById('log');
+        const statusEl = document.getElementById('status');
+
+        function log(dir, data) {
+            const time = new Date().toLocaleTimeString();
+            const cls = dir === '→' ? 'dir-send' : 'dir-recv';
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="time">${time}</span> <span class="dir ${cls}">${dir}</span> ${typeof data === 'string' ? data : JSON.stringify(data, null, 2)}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function connectWs() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            }
+            const url = `ws://${window.location.host}/ws/debate/${sessionId}/`;
+            log('→', `Connecting to ${url}`);
+            ws = new WebSocket(url);
+
+            ws.onopen = () => {
+                statusEl.textContent = '● Connected';
+                statusEl.className = 'status connected';
+                log('←', 'WebSocket opened');
+            };
+            ws.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                log('←', data);
+            };
+            ws.onclose = () => {
+                statusEl.textContent = '● Disconnected';
+                statusEl.className = 'status disconnected';
+                log('←', 'WebSocket closed');
+            };
+            ws.onerror = (e) => log('←', 'Error: ' + e);
+        }
+
+        function sendPitch() {
+            const input = document.getElementById('message');
+            const content = input.value.trim();
+            if (!content || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+            const msg = { type: 'user_pitch', content };
+            ws.send(JSON.stringify(msg));
+            log('→', msg);
+            input.value = '';
+        }
+
+        document.getElementById('message').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendPitch();
+        });
+
+        // Auto-connect on load
+        window.addEventListener('load', connectWs);
+    </script>
+</body>
+</html>
