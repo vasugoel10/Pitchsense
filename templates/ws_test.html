@@ -3,132 +3,342 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PitchSense — WebSocket Test</title>
+    <title>PitchSense — Debate Test</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
             background: #0a0a0f;
             color: #e0e0e0;
-            padding: 2rem;
+            padding: 1.5rem;
             min-height: 100vh;
         }
-        h1 { color: #818cf8; margin-bottom: 1rem; font-size: 1.5rem; }
+        h1 { color: #818cf8; margin-bottom: 0.5rem; font-size: 1.4rem; }
+        .subtitle { color: #6b7280; font-size: 0.85rem; margin-bottom: 1rem; }
         .status {
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.4rem;
             margin-bottom: 1rem;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: 600;
+            display: inline-block;
         }
         .connected { background: #064e3b; color: #34d399; }
         .disconnected { background: #7f1d1d; color: #f87171; }
-        #log {
+
+        .turn-indicator {
+            float: right;
+            background: #1e1b4b;
+            color: #a5b4fc;
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.4rem;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .persona-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .persona-card {
             background: #111118;
             border: 1px solid #2d2d3d;
             border-radius: 0.75rem;
             padding: 1rem;
-            height: 400px;
-            overflow-y: auto;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
-            margin-bottom: 1rem;
+            min-height: 200px;
+            max-height: 400px;
+            display: flex;
+            flex-direction: column;
         }
-        .log-entry { margin-bottom: 0.5rem; }
-        .log-entry .time { color: #6366f1; }
-        .log-entry .dir { font-weight: bold; }
-        .dir-send { color: #f59e0b; }
-        .dir-recv { color: #34d399; }
+        .persona-card.active { border-color: #6366f1; box-shadow: 0 0 12px rgba(99,102,241,0.15); }
+        .persona-card.error { border-color: #ef4444; }
+
+        .persona-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #1e1e2e;
+        }
+        .persona-emoji { font-size: 1.2rem; }
+        .persona-name { font-weight: 600; font-size: 0.9rem; color: #c4b5fd; }
+        .persona-status {
+            margin-left: auto;
+            font-size: 0.7rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 1rem;
+            background: #1e1e2e;
+            color: #6b7280;
+        }
+        .persona-status.streaming { background: #1e1b4b; color: #818cf8; animation: pulse 1.5s infinite; }
+        .persona-status.done { background: #064e3b; color: #34d399; }
+        .persona-status.error { background: #7f1d1d; color: #f87171; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .persona-content {
+            flex: 1;
+            overflow-y: auto;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #d1d5db;
+            white-space: pre-wrap;
+        }
+        .persona-content .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: #818cf8;
+            animation: blink 0.8s infinite;
+            vertical-align: text-bottom;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
         .controls {
             display: flex;
             gap: 0.75rem;
         }
         input {
             flex: 1;
-            padding: 0.75rem 1rem;
+            padding: 0.7rem 1rem;
             background: #111118;
             border: 1px solid #2d2d3d;
             border-radius: 0.5rem;
             color: #e0e0e0;
             font-size: 0.9rem;
         }
+        input:focus { outline: none; border-color: #6366f1; }
         button {
-            padding: 0.75rem 1.5rem;
+            padding: 0.7rem 1.25rem;
             border: none;
             border-radius: 0.5rem;
             font-weight: 600;
             cursor: pointer;
-            font-size: 0.9rem;
-            transition: transform 0.1s;
+            font-size: 0.85rem;
+            transition: transform 0.1s, opacity 0.15s;
         }
         button:active { transform: scale(0.97); }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
         .btn-send { background: #6366f1; color: white; }
         .btn-connect { background: #059669; color: white; }
+
+        .log-area {
+            margin-top: 1rem;
+            background: #111118;
+            border: 1px solid #2d2d3d;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 0.7rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: #6b7280;
+        }
+        .log-area .log-entry { margin-bottom: 0.2rem; }
     </style>
 </head>
 <body>
-    <h1>🎯 PitchSense — WebSocket Test</h1>
-    <div id="status" class="status disconnected">● Disconnected</div>
-    <div id="log"></div>
-    <div class="controls">
-        <input id="message" type="text" placeholder="Type a pitch to test..." />
-        <button class="btn-send" onclick="sendPitch()">Send Pitch</button>
-        <button class="btn-connect" onclick="connectWs()">Connect</button>
+    <h1>🎯 PitchSense — Debate Test</h1>
+    <p class="subtitle">Send a pitch and watch 3 AI personas respond in real-time</p>
+
+    <div style="margin-bottom: 1rem;">
+        <span id="status" class="status disconnected">● Disconnected</span>
+        <span id="turnIndicator" class="turn-indicator" style="display:none;">Turn 0/5</span>
     </div>
+
+    <div class="persona-grid">
+        <div class="persona-card" id="card-investor">
+            <div class="persona-header">
+                <span class="persona-emoji">🏦</span>
+                <span class="persona-name">Ava Chen, VC Partner</span>
+                <span class="persona-status" id="status-investor">waiting</span>
+            </div>
+            <div class="persona-content" id="content-investor"></div>
+        </div>
+        <div class="persona-card" id="card-customer">
+            <div class="persona-header">
+                <span class="persona-emoji">👤</span>
+                <span class="persona-name">Rohan Mehta, Target User</span>
+                <span class="persona-status" id="status-customer">waiting</span>
+            </div>
+            <div class="persona-content" id="content-customer"></div>
+        </div>
+        <div class="persona-card" id="card-competitor">
+            <div class="persona-header">
+                <span class="persona-emoji">⚔️</span>
+                <span class="persona-name">Sara Lin, Rival Founder</span>
+                <span class="persona-status" id="status-competitor">waiting</span>
+            </div>
+            <div class="persona-content" id="content-competitor"></div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <input id="message" type="text" placeholder="Speak your pitch..." />
+        <button class="btn-send" id="sendBtn" onclick="sendPitch()" disabled>Send Pitch</button>
+        <button class="btn-connect" onclick="connectWs()">Reconnect</button>
+    </div>
+
+    <div class="log-area" id="log"></div>
 
     <script>
         let ws = null;
         const sessionId = crypto.randomUUID();
-        const logEl = document.getElementById('log');
-        const statusEl = document.getElementById('status');
+        let currentTurn = 0;
+        let isProcessing = false;
 
-        function log(dir, data) {
-            const time = new Date().toLocaleTimeString();
-            const cls = dir === '→' ? 'dir-send' : 'dir-recv';
+        const $ = (id) => document.getElementById(id);
+
+        function log(msg) {
+            const el = $('log');
             const entry = document.createElement('div');
             entry.className = 'log-entry';
-            entry.innerHTML = `<span class="time">${time}</span> <span class="dir ${cls}">${dir}</span> ${typeof data === 'string' ? data : JSON.stringify(data, null, 2)}`;
-            logEl.appendChild(entry);
-            logEl.scrollTop = logEl.scrollHeight;
+            entry.textContent = `${new Date().toLocaleTimeString()} — ${msg}`;
+            el.appendChild(entry);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        function setPersonaStatus(persona, status) {
+            const el = $(`status-${persona}`);
+            el.textContent = status;
+            el.className = 'persona-status' + (status === 'streaming' ? ' streaming' : status === 'done' ? ' done' : status === 'error' ? ' error' : '');
+
+            const card = $(`card-${persona}`);
+            card.classList.toggle('active', status === 'streaming');
+            card.classList.toggle('error', status === 'error');
+        }
+
+        function appendChunk(persona, chunk) {
+            const el = $(`content-${persona}`);
+            // Remove existing cursor
+            const cursor = el.querySelector('.cursor');
+            if (cursor) cursor.remove();
+            // Append chunk text + new cursor
+            el.insertAdjacentText('beforeend', chunk);
+            const newCursor = document.createElement('span');
+            newCursor.className = 'cursor';
+            el.appendChild(newCursor);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        function finishPersona(persona) {
+            const el = $(`content-${persona}`);
+            const cursor = el.querySelector('.cursor');
+            if (cursor) cursor.remove();
+        }
+
+        function clearPersonaCards() {
+            ['investor', 'customer', 'competitor'].forEach(p => {
+                $(`content-${p}`).innerHTML = '';
+                setPersonaStatus(p, 'waiting');
+            });
         }
 
         function connectWs() {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.close();
-            }
+            if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+
             const url = `ws://${window.location.host}/ws/debate/${sessionId}/`;
-            log('→', `Connecting to ${url}`);
+            log(`Connecting to ${url}`);
             ws = new WebSocket(url);
 
             ws.onopen = () => {
-                statusEl.textContent = '● Connected';
-                statusEl.className = 'status connected';
-                log('←', 'WebSocket opened');
+                $('status').textContent = '● Connected';
+                $('status').className = 'status connected';
+                $('sendBtn').disabled = false;
+                log('WebSocket opened');
             };
+
             ws.onmessage = (e) => {
                 const data = JSON.parse(e.data);
-                log('←', data);
+                handleMessage(data);
             };
+
             ws.onclose = () => {
-                statusEl.textContent = '● Disconnected';
-                statusEl.className = 'status disconnected';
-                log('←', 'WebSocket closed');
+                $('status').textContent = '● Disconnected';
+                $('status').className = 'status disconnected';
+                $('sendBtn').disabled = true;
+                log('WebSocket closed');
             };
-            ws.onerror = (e) => log('←', 'Error: ' + e);
+
+            ws.onerror = () => log('WebSocket error');
+        }
+
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'connection_established':
+                    currentTurn = data.current_turn;
+                    log(`Session ${data.session_id} (turn ${currentTurn})`);
+                    break;
+
+                case 'turn_started':
+                    currentTurn = data.turn;
+                    $('turnIndicator').style.display = 'inline-block';
+                    $('turnIndicator').textContent = `Turn ${currentTurn}/5`;
+                    clearPersonaCards();
+                    log(`Turn ${data.turn} started`);
+                    break;
+
+                case 'persona_start':
+                    setPersonaStatus(data.persona, 'streaming');
+                    log(`${data.emoji} ${data.name} responding...`);
+                    break;
+
+                case 'persona_chunk':
+                    appendChunk(data.persona, data.content);
+                    break;
+
+                case 'persona_done':
+                    finishPersona(data.persona);
+                    setPersonaStatus(data.persona, 'done');
+                    log(`${data.persona} done (${data.full_content.length} chars)`);
+                    break;
+
+                case 'persona_error':
+                    setPersonaStatus(data.persona, 'error');
+                    $(`content-${data.persona}`).textContent = `Error: ${data.error}`;
+                    log(`ERROR ${data.persona}: ${data.error}`);
+                    break;
+
+                case 'turn_complete':
+                    isProcessing = false;
+                    $('sendBtn').disabled = false;
+                    if (data.is_final) {
+                        $('sendBtn').disabled = true;
+                        $('message').placeholder = 'Debate complete! (5/5 turns)';
+                        log('🏁 Debate complete!');
+                    } else {
+                        log(`Turn ${data.turn} complete. Send next pitch.`);
+                    }
+                    break;
+
+                case 'error':
+                    isProcessing = false;
+                    $('sendBtn').disabled = false;
+                    log(`Error: ${data.message}`);
+                    break;
+            }
         }
 
         function sendPitch() {
-            const input = document.getElementById('message');
+            const input = $('message');
             const content = input.value.trim();
-            if (!content || !ws || ws.readyState !== WebSocket.OPEN) return;
+            if (!content || !ws || ws.readyState !== WebSocket.OPEN || isProcessing) return;
 
-            const msg = { type: 'user_pitch', content };
-            ws.send(JSON.stringify(msg));
-            log('→', msg);
+            isProcessing = true;
+            $('sendBtn').disabled = true;
+            ws.send(JSON.stringify({ type: 'user_pitch', content }));
+            log(`→ Pitch sent: "${content.substring(0, 60)}..."`);
             input.value = '';
         }
 
-        document.getElementById('message').addEventListener('keydown', (e) => {
+        $('message').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') sendPitch();
         });
 
