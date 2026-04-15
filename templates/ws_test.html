@@ -182,8 +182,13 @@
 
     <div class="controls">
         <input id="message" type="text" placeholder="Speak your pitch..." />
-        <button class="btn-send" id="sendBtn" onclick="sendPitch()" disabled>Send Pitch</button>
-        <button class="btn-connect" onclick="connectWs()">Reconnect</button>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; flex: 1;">
+            <button class="btn-send" id="sendBtnAll" onclick="sendPitch('all')" disabled>Send Pitch (All)</button>
+            <button class="btn-send" style="background:#4338ca;" id="sendBtnInv" onclick="sendPitch('investor')" disabled>Reply to Ava 🏦</button>
+            <button class="btn-send" style="background:#5b21b6;" id="sendBtnCus" onclick="sendPitch('customer')" disabled>Reply to Rohan 👤</button>
+            <button class="btn-send" style="background:#86198f;" id="sendBtnCom" onclick="sendPitch('competitor')" disabled>Reply to Sara ⚔️</button>
+        </div>
+        <button class="btn-connect" onclick="connectWs()" style="height: fit-content;">Reconnect</button>
     </div>
 
     <div class="log-area" id="log"></div>
@@ -251,7 +256,7 @@
             ws.onopen = () => {
                 $('status').textContent = '● Connected';
                 $('status').className = 'status connected';
-                $('sendBtn').disabled = false;
+                enableButtons(true);
                 log('WebSocket opened');
             };
 
@@ -263,7 +268,7 @@
             ws.onclose = () => {
                 $('status').textContent = '● Disconnected';
                 $('status').className = 'status disconnected';
-                $('sendBtn').disabled = true;
+                enableButtons(false);
                 log('WebSocket closed');
             };
 
@@ -308,38 +313,45 @@
 
                 case 'turn_complete':
                     isProcessing = false;
-                    $('sendBtn').disabled = false;
                     if (data.is_final) {
-                        $('sendBtn').disabled = true;
+                        enableButtons(false);
                         $('message').placeholder = 'Debate complete! (5/5 turns)';
                         log('🏁 Debate complete!');
                     } else {
+                        enableButtons(true);
                         log(`Turn ${data.turn} complete. Send next pitch.`);
                     }
                     break;
 
                 case 'error':
                     isProcessing = false;
-                    $('sendBtn').disabled = false;
+                    enableButtons(true);
                     log(`Error: ${data.message}`);
                     break;
             }
         }
 
-        function sendPitch() {
+        function enableButtons(enabled) {
+            ['sendBtnAll', 'sendBtnInv', 'sendBtnCus', 'sendBtnCom'].forEach(id => {
+                const btn = $(id);
+                if (btn) btn.disabled = !enabled;
+            });
+        }
+
+        function sendPitch(target = 'all') {
             const input = $('message');
             const content = input.value.trim();
             if (!content || !ws || ws.readyState !== WebSocket.OPEN || isProcessing) return;
 
             isProcessing = true;
-            $('sendBtn').disabled = true;
-            ws.send(JSON.stringify({ type: 'user_pitch', content }));
-            log(`→ Pitch sent: "${content.substring(0, 60)}..."`);
+            enableButtons(false);
+            ws.send(JSON.stringify({ type: 'user_pitch', content, target }));
+            log(`→ Pitch sent to [${target}]: "${content.substring(0, 60)}..."`);
             input.value = '';
         }
 
         $('message').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') sendPitch();
+            if (e.key === 'Enter') sendPitch('all');
         });
 
         // Auto-connect on load

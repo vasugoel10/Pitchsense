@@ -94,19 +94,30 @@ class DebateConsumer(AsyncWebsocketConsumer):
             }))
             return
 
+        target_persona = data.get('target', 'all')
+        
+        # Prepend [Directed at Name] so the other personas reading the global 
+        # transcript know exactly who this pitch was targeting.
+        if target_persona in PERSONAS:
+            target_name = PERSONAS[target_persona]['name']
+            transcript_content = f"[Directed at {target_name}]: {content}"
+            personas_to_fire = [target_persona]
+        else:
+            transcript_content = content
+            personas_to_fire = PERSONA_ORDER
+
         # Advance turn and record user's pitch
         turn = await self._advance_turn()
-        await self._append_transcript('user', content, turn)
+        await self._append_transcript('user', transcript_content, turn)
 
         await self.send(text_data=json.dumps({
             'type': 'turn_started',
             'turn': turn,
-            'user_content': content,
+            'user_content': transcript_content,
         }))
 
-        # Fire all 3 personas sequentially
-        # Phase 3 will upgrade to parallel with asyncio.gather() + latency hiding
-        for persona_key in PERSONA_ORDER:
+        # Fire targeted personas
+        for persona_key in personas_to_fire:
             await self._stream_persona(persona_key, turn)
 
         # Check if this was the final turn
