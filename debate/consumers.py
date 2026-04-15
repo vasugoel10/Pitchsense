@@ -10,11 +10,13 @@ Handles:
 import json
 import uuid
 import logging
+import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import DebateSession, GlobalTranscript
 from .personas import PERSONAS, PERSONA_ORDER
 from .services.groq_service import stream_persona_response
+from .services.tavily_service import get_competitor_context
 
 logger = logging.getLogger(__name__)
 
@@ -96,12 +98,13 @@ class DebateConsumer(AsyncWebsocketConsumer):
 
         target_persona = data.get('target', 'all')
         
-        # Prepend [Directed at Name] so the other personas reading the global 
-        # transcript know exactly who this pitch was targeting.
+        # Prepend explicit tag and make the targeted persona respond FIRST
         if target_persona in PERSONAS:
             target_name = PERSONAS[target_persona]['name']
-            transcript_content = f"[Directed at {target_name}]: {content}"
-            personas_to_fire = [target_persona]
+            transcript_content = f"[Founder speaking directly to {target_name}]: {content}"
+            
+            # Put target persona first, then the remaining personas
+            personas_to_fire = [target_persona] + [p for p in PERSONA_ORDER if p != target_persona]
         else:
             transcript_content = content
             personas_to_fire = PERSONA_ORDER
@@ -116,13 +119,26 @@ class DebateConsumer(AsyncWebsocketConsumer):
             'user_content': transcript_content,
         }))
 
+        # Launch background Tavily search for latency hiding
+        tavily_task = asyncio.create_task(get_competitor_context(content))
+
         # Fire targeted personas
         for persona_key in personas_to_fire:
-            await self._stream_persona(persona_key, turn)
+            tavily_context = None
+            if persona_key == 'competitor':
+                tavily_context = await tavily_task
+            await self._stream_persona(persona_key, turn, tavily_context=tavily_context)
 
         # Check if this was the final turn
         is_final = turn >= 5
         if is_final:
+            transcript = await self._get_transcript()
+            from .services.groq_service import generate_scorecard
+            scorecard_data = await generate_scorecard(transcript)
+            await self.send(text_data=json.dumps({
+                'type': 'scorecard_generated',
+                'scorecard': scorecard_data,
+            }))
             await self._complete_session()
 
         await self.send(text_data=json.dumps({
@@ -131,7 +147,7 @@ class DebateConsumer(AsyncWebsocketConsumer):
             'is_final': is_final,
         }))
 
-    async def _stream_persona(self, persona_key, turn):
+    async def _stream_persona(self, persona_key, turn, tavily_context=None):
         """
         Stream a single persona's response from Groq LLM to the client.
 
@@ -163,6 +179,7 @@ class DebateConsumer(AsyncWebsocketConsumer):
                 persona_key,
                 transcript_entries,
                 turn_number=turn,
+                tavily_context=tavily_context,
             ):
                 full_response.append(chunk)
                 await self.send(text_data=json.dumps({

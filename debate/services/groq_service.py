@@ -8,6 +8,7 @@ Architecture: This is an async generator — the consumer iterates over it
 and forwards each chunk instantly via WebSocket.
 """
 import logging
+import json
 from groq import AsyncGroq
 from django.conf import settings
 from debate.personas import PERSONAS, build_messages
@@ -74,20 +75,75 @@ async def stream_persona_response(persona_key, transcript_entries,
 
 async def generate_scorecard(transcript_entries):
     """
-    Generate Turn 5 structured JSON scorecard.
-
-    Stub — full implementation in Phase 3 with 3-layer JSON defense (ADR-009):
-    1. response_format: {"type": "json_object"} if Groq supports it
-    2. Simplified retry prompt on failure
-    3. Hardcoded fallback so UI never breaks
-
-    Args:
-        transcript_entries: Full debate transcript
-
-    Returns:
-        dict: Scorecard with overall_score, market, moat, feasibility, verdict
+    Generate Turn 5 structured JSON scorecard using 3-layer JSON defense (ADR-009).
     """
-    raise NotImplementedError(
-        "Scorecard generation is implemented in Phase 3. "
-        "See ADR-009 for the 3-layer JSON defense strategy."
-    )
+    if not settings.GROQ_API_KEY:
+        return _get_fallback_scorecard()
+
+    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+    
+    system_prompt = """You are an impartial judge. Review the startup pitch debate transcript and return a final scorecard in STRICT JSON format.
+The JSON must contain EXACTLY these keys:
+{
+  "overall_score": <int 0-10>,
+  "market": <int 0-10>,
+  "moat": <int 0-10>,
+  "feasibility": <int 0-10>,
+  "verdict": "<KILL | PIVOT | PROCEED>",
+  "feedback": "<1-2 sentence summary>"
+}
+Output nothing else."""
+
+    debate_text = ""
+    for entry in transcript_entries:
+        debate_text += f"[{entry.role}] {entry.content}\n"
+        
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": debate_text}
+    ]
+    
+    content = ""
+    # Layer 1
+    try:
+        response = await client.chat.completions.create(
+            messages=messages,
+            model=GROQ_MODEL,
+            response_format={"type": "json_object"},
+            temperature=0.1,
+            max_tokens=500,
+        )
+        content = response.choices[0].message.content
+        return json.loads(content)
+    except json.JSONDecodeError:
+        pass
+    except Exception as e:
+        logger.error(f"Layer 1 JSON parsing failed: {e}")
+
+    # Layer 2: Retry
+    try:
+        retry_prompt = "Output STRICT JSON ONLY matching the required format."
+        messages.append({"role": "assistant", "content": content})
+        messages.append({"role": "user", "content": retry_prompt})
+        response = await client.chat.completions.create(
+            messages=messages,
+            model=GROQ_MODEL,
+            temperature=0.1,
+            max_tokens=500,
+        )
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        logger.error(f"Layer 2 JSON parsing failed: {e}")
+
+    # Layer 3: Hardcoded fallback
+    return _get_fallback_scorecard()
+
+def _get_fallback_scorecard():
+    return {
+        "overall_score": 5,
+        "market": 5,
+        "moat": 5,
+        "feasibility": 5,
+        "verdict": "PIVOT",
+        "feedback": "The debate concluded with mixed signals. Reassess your core hypotheses."
+    }
