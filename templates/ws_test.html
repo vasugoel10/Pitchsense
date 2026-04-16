@@ -36,11 +36,28 @@
             font-size: 0.9rem;
         }
 
+        .mode-indicator {
+            display: inline-block;
+            padding: 0.3rem 0.7rem;
+            border-radius: 0.4rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        .mode-panel { background: #1e1b4b; color: #a5b4fc; }
+        .mode-deep-dive { background: #4c1d95; color: #c4b5fd; }
+
+        /* ── Persona Grid ─────────────────────────────── */
         .persona-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             gap: 1rem;
             margin-bottom: 1rem;
+            transition: all 0.4s ease;
+        }
+        .persona-grid.deep-dive {
+            grid-template-columns: 1fr;
         }
 
         .persona-card {
@@ -52,9 +69,27 @@
             max-height: 400px;
             display: flex;
             flex-direction: column;
+            transition: all 0.4s ease;
+            cursor: pointer;
+        }
+        .persona-card:hover:not(.deep-dive-active) {
+            border-color: #4338ca;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(99,102,241,0.1);
         }
         .persona-card.active { border-color: #6366f1; box-shadow: 0 0 12px rgba(99,102,241,0.15); }
         .persona-card.error { border-color: #ef4444; }
+
+        .persona-card.deep-dive-active {
+            max-height: none;
+            min-height: 400px;
+            cursor: default;
+            border-color: #7c3aed;
+            box-shadow: 0 0 20px rgba(124,58,237,0.2);
+        }
+        .persona-card.deep-dive-hidden {
+            display: none;
+        }
 
         .persona-header {
             display: flex;
@@ -83,6 +118,7 @@
             50% { opacity: 0.5; }
         }
 
+        /* ── Persona Content (Panel mode) ─────────────── */
         .persona-content {
             flex: 1;
             overflow-y: auto;
@@ -101,9 +137,90 @@
         }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
+        /* ── Deep Dive Chat Thread ─────────────────────── */
+        .deep-dive-chat {
+            display: none;
+            flex-direction: column;
+            flex: 1;
+            overflow-y: auto;
+            gap: 0.75rem;
+            padding: 0.5rem 0;
+        }
+        .deep-dive-active .deep-dive-chat {
+            display: flex;
+        }
+        .deep-dive-active .persona-content {
+            display: none;
+        }
+
+        .chat-msg {
+            padding: 0.75rem 1rem;
+            border-radius: 0.6rem;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            max-width: 90%;
+            white-space: pre-wrap;
+        }
+        .chat-msg.user {
+            background: #1e1b4b;
+            color: #c4b5fd;
+            align-self: flex-end;
+            border-bottom-right-radius: 0.15rem;
+        }
+        .chat-msg.ai {
+            background: #1a1a2e;
+            color: #d1d5db;
+            align-self: flex-start;
+            border-bottom-left-radius: 0.15rem;
+            max-width: 95%;
+        }
+        .chat-msg.ai .cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: #818cf8;
+            animation: blink 0.8s infinite;
+            vertical-align: text-bottom;
+        }
+
+        /* ── Back to Panel button ──────────────────────── */
+        .btn-back {
+            display: none;
+            background: #374151;
+            color: #d1d5db;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-bottom: 1rem;
+            transition: background 0.2s;
+        }
+        .btn-back:hover { background: #4b5563; }
+        .btn-back.visible { display: inline-flex; align-items: center; gap: 0.4rem; }
+
+        /* ── Click hint on cards ────────────────────────── */
+        .click-hint {
+            font-size: 0.65rem;
+            color: #4b5563;
+            margin-top: 0.5rem;
+            text-align: center;
+            transition: opacity 0.2s;
+        }
+        .persona-card:hover .click-hint { color: #6366f1; }
+
+        /* ── Controls ──────────────────────────────────── */
         .controls {
             display: flex;
             gap: 0.75rem;
+            align-items: flex-start;
+        }
+        .controls-panel {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            flex: 1;
         }
         input {
             flex: 1;
@@ -113,6 +230,7 @@
             border-radius: 0.5rem;
             color: #e0e0e0;
             font-size: 0.9rem;
+            min-width: 200px;
         }
         input:focus { outline: none; border-color: #6366f1; }
         button {
@@ -127,6 +245,7 @@
         button:active { transform: scale(0.97); }
         button:disabled { opacity: 0.4; cursor: not-allowed; }
         .btn-send { background: #6366f1; color: white; }
+        .btn-deep-send { background: #7c3aed; color: white; }
         .btn-connect { background: #059669; color: white; }
 
         .log-area {
@@ -146,48 +265,62 @@
 </head>
 <body>
     <h1>🎯 PitchSense — Debate Test</h1>
-    <p class="subtitle">Send a pitch and watch 3 AI personas respond in real-time</p>
+    <p class="subtitle">Send a pitch and watch 3 AI personas respond in real-time. Click any persona to deep dive.</p>
 
     <div style="margin-bottom: 1rem;">
         <span id="status" class="status disconnected">● Disconnected</span>
+        <span id="modeIndicator" class="mode-indicator mode-panel">📋 Panel Mode</span>
         <span id="turnIndicator" class="turn-indicator" style="display:none;">Turn 0/5</span>
     </div>
 
-    <div class="persona-grid">
-        <div class="persona-card" id="card-investor">
+    <button class="btn-back" id="btnBack" onclick="exitDeepDive()">← Back to Panel</button>
+
+    <div class="persona-grid" id="personaGrid">
+        <div class="persona-card" id="card-investor" onclick="enterDeepDive('investor')">
             <div class="persona-header">
                 <span class="persona-emoji">🏦</span>
                 <span class="persona-name">Ava Chen, VC Partner</span>
                 <span class="persona-status" id="status-investor">waiting</span>
             </div>
             <div class="persona-content" id="content-investor"></div>
+            <div class="deep-dive-chat" id="chat-investor"></div>
+            <div class="click-hint">Click to deep dive →</div>
         </div>
-        <div class="persona-card" id="card-customer">
+        <div class="persona-card" id="card-customer" onclick="enterDeepDive('customer')">
             <div class="persona-header">
                 <span class="persona-emoji">👤</span>
                 <span class="persona-name">Rohan Mehta, Target User</span>
                 <span class="persona-status" id="status-customer">waiting</span>
             </div>
             <div class="persona-content" id="content-customer"></div>
+            <div class="deep-dive-chat" id="chat-customer"></div>
+            <div class="click-hint">Click to deep dive →</div>
         </div>
-        <div class="persona-card" id="card-competitor">
+        <div class="persona-card" id="card-competitor" onclick="enterDeepDive('competitor')">
             <div class="persona-header">
                 <span class="persona-emoji">⚔️</span>
                 <span class="persona-name">Sara Lin, Rival Founder</span>
                 <span class="persona-status" id="status-competitor">waiting</span>
             </div>
             <div class="persona-content" id="content-competitor"></div>
+            <div class="deep-dive-chat" id="chat-competitor"></div>
+            <div class="click-hint">Click to deep dive →</div>
         </div>
     </div>
 
-    <div class="controls">
+    <!-- Panel Mode Controls -->
+    <div class="controls" id="panelControls">
         <input id="message" type="text" placeholder="Speak your pitch..." />
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; flex: 1;">
+        <div class="controls-panel">
             <button class="btn-send" id="sendBtnAll" onclick="sendPitch('all')" disabled>Send Pitch (All)</button>
-            <button class="btn-send" style="background:#4338ca;" id="sendBtnInv" onclick="sendPitch('investor')" disabled>Reply to Ava 🏦</button>
-            <button class="btn-send" style="background:#5b21b6;" id="sendBtnCus" onclick="sendPitch('customer')" disabled>Reply to Rohan 👤</button>
-            <button class="btn-send" style="background:#86198f;" id="sendBtnCom" onclick="sendPitch('competitor')" disabled>Reply to Sara ⚔️</button>
         </div>
+        <button class="btn-connect" onclick="connectWs()" style="height: fit-content;">Reconnect</button>
+    </div>
+
+    <!-- Deep Dive Mode Controls -->
+    <div class="controls" id="deepDiveControls" style="display:none;">
+        <input id="deepMessage" type="text" placeholder="Ask a follow-up question..." />
+        <button class="btn-deep-send" id="sendBtnDeep" onclick="sendDeepDive()" disabled>Send</button>
         <button class="btn-connect" onclick="connectWs()" style="height: fit-content;">Reconnect</button>
     </div>
 
@@ -198,6 +331,24 @@
         const sessionId = crypto.randomUUID();
         let currentTurn = 0;
         let isProcessing = false;
+
+        // Mode state
+        let currentMode = 'panel';  // 'panel' or 'deep_dive'
+        let activePersona = null;   // null or persona key
+
+        // Chat history per persona (for deep dive thread rendering)
+        const chatHistory = {
+            investor: [],
+            customer: [],
+            competitor: [],
+        };
+
+        // Latest panel responses (preserved when switching modes)
+        const latestPanelContent = {
+            investor: '',
+            customer: '',
+            competitor: '',
+        };
 
         const $ = (id) => document.getElementById(id);
 
@@ -221,30 +372,184 @@
         }
 
         function appendChunk(persona, chunk) {
-            const el = $(`content-${persona}`);
-            // Remove existing cursor
-            const cursor = el.querySelector('.cursor');
-            if (cursor) cursor.remove();
-            // Append chunk text + new cursor
-            el.insertAdjacentText('beforeend', chunk);
-            const newCursor = document.createElement('span');
-            newCursor.className = 'cursor';
-            el.appendChild(newCursor);
-            el.scrollTop = el.scrollHeight;
+            if (currentMode === 'deep_dive' && persona === activePersona) {
+                // Append to the last AI message bubble in the chat thread
+                const chatEl = $(`chat-${persona}`);
+                let lastBubble = chatEl.querySelector('.chat-msg.ai:last-child');
+                if (!lastBubble) {
+                    lastBubble = document.createElement('div');
+                    lastBubble.className = 'chat-msg ai';
+                    chatEl.appendChild(lastBubble);
+                }
+                // Remove cursor if exists
+                const cursor = lastBubble.querySelector('.cursor');
+                if (cursor) cursor.remove();
+                lastBubble.insertAdjacentText('beforeend', chunk);
+                const newCursor = document.createElement('span');
+                newCursor.className = 'cursor';
+                lastBubble.appendChild(newCursor);
+                chatEl.scrollTop = chatEl.scrollHeight;
+            } else {
+                // Panel mode: append to the single content area
+                const el = $(`content-${persona}`);
+                const cursor = el.querySelector('.cursor');
+                if (cursor) cursor.remove();
+                el.insertAdjacentText('beforeend', chunk);
+                const newCursor = document.createElement('span');
+                newCursor.className = 'cursor';
+                el.appendChild(newCursor);
+                el.scrollTop = el.scrollHeight;
+            }
         }
 
         function finishPersona(persona) {
-            const el = $(`content-${persona}`);
-            const cursor = el.querySelector('.cursor');
-            if (cursor) cursor.remove();
+            if (currentMode === 'deep_dive' && persona === activePersona) {
+                const chatEl = $(`chat-${persona}`);
+                const cursor = chatEl.querySelector('.cursor');
+                if (cursor) cursor.remove();
+            } else {
+                const el = $(`content-${persona}`);
+                const cursor = el.querySelector('.cursor');
+                if (cursor) cursor.remove();
+            }
         }
 
         function clearPersonaCards() {
-            ['investor', 'customer', 'competitor'].forEach(p => {
-                $(`content-${p}`).innerHTML = '';
-                setPersonaStatus(p, 'waiting');
-            });
+            if (currentMode === 'panel') {
+                ['investor', 'customer', 'competitor'].forEach(p => {
+                    $(`content-${p}`).innerHTML = '';
+                    setPersonaStatus(p, 'waiting');
+                });
+            } else {
+                // In deep dive, only reset the active persona's status
+                if (activePersona) {
+                    setPersonaStatus(activePersona, 'waiting');
+                }
+            }
         }
+
+        // ── Deep Dive Mode ────────────────────────────────────
+
+        function enterDeepDive(personaKey) {
+            if (currentMode === 'deep_dive' || isProcessing) return;
+
+            currentMode = 'deep_dive';
+            activePersona = personaKey;
+
+            // Update mode indicator
+            $('modeIndicator').textContent = `🔍 Deep Dive — ${PERSONA_NAMES[personaKey]}`;
+            $('modeIndicator').className = 'mode-indicator mode-deep-dive';
+
+            // Show back button
+            $('btnBack').classList.add('visible');
+
+            // Update grid layout
+            $('personaGrid').classList.add('deep-dive');
+
+            // Hide other cards, expand active
+            ['investor', 'customer', 'competitor'].forEach(p => {
+                const card = $(`card-${p}`);
+                if (p === personaKey) {
+                    card.classList.add('deep-dive-active');
+                    card.classList.remove('deep-dive-hidden');
+                    card.onclick = null;
+                    // Hide click hint
+                    const hint = card.querySelector('.click-hint');
+                    if (hint) hint.style.display = 'none';
+                } else {
+                    card.classList.add('deep-dive-hidden');
+                    card.classList.remove('deep-dive-active');
+                }
+            });
+
+            // Render the chat history for this persona
+            renderChatHistory(personaKey);
+
+            // Swap controls
+            $('panelControls').style.display = 'none';
+            $('deepDiveControls').style.display = 'flex';
+            $('deepMessage').focus();
+
+            // Enable deep send button if connected
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                $('sendBtnDeep').disabled = false;
+            }
+
+            log(`Entered Deep Dive with ${PERSONA_NAMES[personaKey]}`);
+        }
+
+        function exitDeepDive() {
+            if (currentMode === 'panel' || isProcessing) return;
+
+            currentMode = 'panel';
+            activePersona = null;
+
+            // Update mode indicator
+            $('modeIndicator').textContent = '📋 Panel Mode';
+            $('modeIndicator').className = 'mode-indicator mode-panel';
+
+            // Hide back button
+            $('btnBack').classList.remove('visible');
+
+            // Reset grid
+            $('personaGrid').classList.remove('deep-dive');
+
+            // Show all cards, remove deep dive classes
+            ['investor', 'customer', 'competitor'].forEach(p => {
+                const card = $(`card-${p}`);
+                card.classList.remove('deep-dive-active', 'deep-dive-hidden');
+                card.onclick = () => enterDeepDive(p);
+                // Show click hint
+                const hint = card.querySelector('.click-hint');
+                if (hint) hint.style.display = '';
+            });
+
+            // Swap controls back
+            $('panelControls').style.display = 'flex';
+            $('deepDiveControls').style.display = 'none';
+
+            // Enable panel buttons if connected
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                enablePanelButtons(true);
+            }
+
+            log('Returned to Panel Mode');
+        }
+
+        function renderChatHistory(personaKey) {
+            const chatEl = $(`chat-${personaKey}`);
+            chatEl.innerHTML = '';
+
+            const history = chatHistory[personaKey];
+            if (history.length === 0) {
+                // Show the latest panel content as context
+                const panelContent = latestPanelContent[personaKey];
+                if (panelContent) {
+                    const bubble = document.createElement('div');
+                    bubble.className = 'chat-msg ai';
+                    bubble.textContent = panelContent;
+                    chatEl.appendChild(bubble);
+                }
+            } else {
+                history.forEach(msg => {
+                    const bubble = document.createElement('div');
+                    bubble.className = `chat-msg ${msg.role}`;
+                    bubble.textContent = msg.content;
+                    chatEl.appendChild(bubble);
+                });
+            }
+            chatEl.scrollTop = chatEl.scrollHeight;
+        }
+
+        // ── Persona name lookup ───────────────────────────────
+
+        const PERSONA_NAMES = {
+            investor: 'Ava Chen, VC Partner',
+            customer: 'Rohan Mehta, Target User',
+            competitor: 'Sara Lin, Rival Founder',
+        };
+
+        // ── WebSocket ─────────────────────────────────────────
 
         function connectWs() {
             if (ws && ws.readyState === WebSocket.OPEN) ws.close();
@@ -256,7 +561,10 @@
             ws.onopen = () => {
                 $('status').textContent = '● Connected';
                 $('status').className = 'status connected';
-                enableButtons(true);
+                enablePanelButtons(true);
+                if (currentMode === 'deep_dive') {
+                    $('sendBtnDeep').disabled = false;
+                }
                 log('WebSocket opened');
             };
 
@@ -268,7 +576,8 @@
             ws.onclose = () => {
                 $('status').textContent = '● Disconnected';
                 $('status').className = 'status disconnected';
-                enableButtons(false);
+                enablePanelButtons(false);
+                $('sendBtnDeep').disabled = true;
                 log('WebSocket closed');
             };
 
@@ -303,40 +612,78 @@
                     finishPersona(data.persona);
                     setPersonaStatus(data.persona, 'done');
                     log(`${data.persona} done (${data.full_content.length} chars)`);
+
+                    // Save to latest panel content
+                    if (currentMode === 'panel') {
+                        latestPanelContent[data.persona] = data.full_content;
+                    }
+
+                    // Save to chat history for deep dive replay
+                    if (currentMode === 'deep_dive' && data.persona === activePersona) {
+                        chatHistory[data.persona].push({
+                            role: 'ai',
+                            content: data.full_content,
+                        });
+                    }
                     break;
 
                 case 'persona_error':
                     setPersonaStatus(data.persona, 'error');
-                    $(`content-${data.persona}`).textContent = `Error: ${data.error}`;
+                    if (currentMode === 'deep_dive' && data.persona === activePersona) {
+                        const chatEl = $(`chat-${data.persona}`);
+                        const errorBubble = document.createElement('div');
+                        errorBubble.className = 'chat-msg ai';
+                        errorBubble.style.color = '#f87171';
+                        errorBubble.textContent = `Error: ${data.error}`;
+                        chatEl.appendChild(errorBubble);
+                    } else {
+                        $(`content-${data.persona}`).textContent = `Error: ${data.error}`;
+                    }
                     log(`ERROR ${data.persona}: ${data.error}`);
                     break;
 
                 case 'turn_complete':
                     isProcessing = false;
                     if (data.is_final) {
-                        enableButtons(false);
+                        enablePanelButtons(false);
+                        $('sendBtnDeep').disabled = true;
                         $('message').placeholder = 'Debate complete! (5/5 turns)';
+                        $('deepMessage').placeholder = 'Debate complete! (5/5 turns)';
                         log('🏁 Debate complete!');
                     } else {
-                        enableButtons(true);
+                        if (currentMode === 'panel') {
+                            enablePanelButtons(true);
+                        } else {
+                            $('sendBtnDeep').disabled = false;
+                        }
                         log(`Turn ${data.turn} complete. Send next pitch.`);
                     }
                     break;
 
+                case 'scorecard_generated':
+                    log(`📊 Scorecard: ${JSON.stringify(data.scorecard)}`);
+                    break;
+
                 case 'error':
                     isProcessing = false;
-                    enableButtons(true);
+                    if (currentMode === 'panel') {
+                        enablePanelButtons(true);
+                    } else {
+                        $('sendBtnDeep').disabled = false;
+                    }
                     log(`Error: ${data.message}`);
                     break;
             }
         }
 
-        function enableButtons(enabled) {
-            ['sendBtnAll', 'sendBtnInv', 'sendBtnCus', 'sendBtnCom'].forEach(id => {
-                const btn = $(id);
-                if (btn) btn.disabled = !enabled;
-            });
+        // ── Button helpers ────────────────────────────────────
+
+        function enablePanelButtons(enabled) {
+            const btn = $('sendBtnAll');
+            if (btn) btn.disabled = !enabled;
         }
+
+        // ── Send functions ────────────────────────────────────
 
         function sendPitch(target = 'all') {
             const input = $('message');
@@ -344,14 +691,47 @@
             if (!content || !ws || ws.readyState !== WebSocket.OPEN || isProcessing) return;
 
             isProcessing = true;
-            enableButtons(false);
-            ws.send(JSON.stringify({ type: 'user_pitch', content, target }));
+            enablePanelButtons(false);
+            ws.send(JSON.stringify({ type: 'user_pitch', content, target, mode: 'panel' }));
             log(`→ Pitch sent to [${target}]: "${content.substring(0, 60)}..."`);
             input.value = '';
         }
 
+        function sendDeepDive() {
+            const input = $('deepMessage');
+            const content = input.value.trim();
+            if (!content || !ws || ws.readyState !== WebSocket.OPEN || isProcessing || !activePersona) return;
+
+            isProcessing = true;
+            $('sendBtnDeep').disabled = true;
+
+            // Add user message to chat history and render it
+            chatHistory[activePersona].push({ role: 'user', content });
+            const chatEl = $(`chat-${activePersona}`);
+            const userBubble = document.createElement('div');
+            userBubble.className = 'chat-msg user';
+            userBubble.textContent = content;
+            chatEl.appendChild(userBubble);
+            chatEl.scrollTop = chatEl.scrollHeight;
+
+            ws.send(JSON.stringify({
+                type: 'user_pitch',
+                content,
+                target: activePersona,
+                mode: 'deep_dive',
+            }));
+            log(`→ Deep dive to [${activePersona}]: "${content.substring(0, 60)}..."`);
+            input.value = '';
+        }
+
+        // ── Keyboard shortcuts ────────────────────────────────
+
         $('message').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') sendPitch('all');
+        });
+
+        $('deepMessage').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendDeepDive();
         });
 
         // Auto-connect on load
@@ -359,3 +739,5 @@
     </script>
 </body>
 </html>
+</CodeContent>
+<parameter name="Description">Complete rewrite of ws_test.html with Hybrid Panel/Deep Dive UI. Click a persona card to enter 1-on-1 deep dive mode with chat thread. Back to Panel returns to 3-card grid with preserved content.

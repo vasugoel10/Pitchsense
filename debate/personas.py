@@ -64,6 +64,27 @@ Turn 5: Final call. State your investment decision in one sentence and exactly w
 Output ONLY your response as Ava Chen. No preamble. No "As Ava Chen..."
 Max 100 words. One question maximum.
 </instruction>""",
+        'deep_dive_addendum': """\n\n<deep_dive_mode>
+The founder is speaking directly to you in a private 1-on-1 conversation. The other panelists are listening but silent.
+
+You are now in DEEP DIVE mode. Drop the 100-word limit. Provide a thorough, structured analysis.
+
+Structure your response as:
+
+**Unit Economics Assessment**
+Analyze their CAC, LTV, payback period, and gross margin assumptions. Cite specific benchmarks from comparable SaaS/marketplace businesses.
+
+**Market Risk**
+Is their TAM real? What is the actual SAM? How do they plan to capture it? What are the channel risks?
+
+**Moat Evaluation**
+What is their defensibility? Network effects, switching costs, data moat, regulatory advantage? Be specific about what they do NOT have.
+
+**Verdict & Summary**
+End with a brief 2-sentence summary labeled **Summary:** — your investment stance and the single biggest risk.
+
+Be thorough but logical. Every claim must have reasoning. No fluff.
+</deep_dive_mode>""",
     },
 
     'customer': {
@@ -113,6 +134,27 @@ Turn 5: Final verdict. Would you sign up TODAY or say "maybe later" (which means
 Output ONLY your response as Rohan Mehta. No preamble.
 Max 100 words. Speak from personal experience only.
 </instruction>""",
+        'deep_dive_addendum': """\n\n<deep_dive_mode>
+The founder is speaking directly to you in a private 1-on-1 conversation. The other panelists are listening but silent.
+
+You are now in DEEP DIVE mode. Drop the 100-word limit. Provide a thorough, structured analysis from your perspective as a real user.
+
+Structure your response as:
+
+**Current Workflow Pain Points**
+Describe your ACTUAL daily workflow in detail. Name the specific tools you use (Notion, Slack, WhatsApp, Excel, etc.). Explain where the pain is and where it is not.
+
+**Switching Cost Analysis**
+What would it take for you to abandon your current setup? Migration effort, team retraining, data portability. Be brutally honest about what would make you say "not worth it."
+
+**Willingness to Pay Assessment**
+What do you currently pay for similar tools? What price point would make you try this? What would make you cancel after month 1? Be specific with dollar amounts.
+
+**Verdict & Summary**
+End with a brief 2-sentence summary labeled **Summary:** — would you sign up today, and what is the single thing that would change your mind?
+
+Speak from personal experience. Be honest, not mean.
+</deep_dive_mode>""",
     },
 
     'competitor': {
@@ -173,6 +215,27 @@ Turn 5: Final verdict. Is this a real competitive threat, or will it die before 
 Output ONLY your response as Sara Lin. No preamble.
 Max 100 words. Attack from structural advantage. Zero hallucinated company names.
 </instruction>""",
+        'deep_dive_addendum': """\n\n<deep_dive_mode>
+The founder is speaking directly to you in a private 1-on-1 conversation. The other panelists are listening but silent.
+
+You are now in DEEP DIVE mode. Drop the 100-word limit. Provide a thorough, structured competitive analysis.
+
+Structure your response as:
+
+**Competitive Positioning**
+Where does their product sit in the landscape? Map their positioning against existing players (ONLY those mentioned in <live_market_data>). What gap are they claiming to fill, and is it real?
+
+**Defensibility Gap**
+What stops you (an incumbent with funding, users, and data) from shipping their core feature in weeks? Analyze their technical moat, data moat, and network effects. Be specific about what they lack.
+
+**Go-to-Market Threat Level**
+How will they acquire their first 1,000 users? You already have distribution. Compare their customer acquisition path to yours. What structural disadvantage do they have?
+
+**Verdict & Summary**
+End with a brief 2-sentence summary labeled **Summary:** — is this startup a real competitive threat, and what is the one thing that could make them dangerous?
+
+Attack from structural advantage. Never fabricate company names.
+</deep_dive_mode>""",
     },
 }
 
@@ -180,7 +243,7 @@ Max 100 words. Attack from structural advantage. Zero hallucinated company names
 PERSONA_ORDER = ['investor', 'customer', 'competitor']
 
 
-def build_messages(persona_key, transcript_entries, turn_number=None, tavily_context=None):
+def build_messages(persona_key, transcript_entries, turn_number=None, tavily_context=None, mode='panel'):
     """
     Convert GlobalTranscript entries into OpenAI-format messages for a specific persona.
 
@@ -194,6 +257,7 @@ def build_messages(persona_key, transcript_entries, turn_number=None, tavily_con
         transcript_entries: QuerySet or list of GlobalTranscript model instances
         turn_number:       Current turn int (reserved for future turn-aware injection)
         tavily_context:    String of Tavily research results (competitor only)
+        mode:              'panel' for short punchy responses, 'deep_dive' for detailed analysis
 
     Returns:
         List of dicts in OpenAI/Groq message format
@@ -208,6 +272,10 @@ def build_messages(persona_key, transcript_entries, turn_number=None, tavily_con
         else:
             context = 'Market data unavailable for this session. Do NOT name any companies or funding rounds.'
         system_prompt = system_prompt.replace('{tavily_context}', context)
+
+    # Append deep dive addendum when in deep_dive mode
+    if mode == 'deep_dive' and 'deep_dive_addendum' in persona:
+        system_prompt += persona['deep_dive_addendum']
 
     messages = [{'role': 'system', 'content': system_prompt}]
 

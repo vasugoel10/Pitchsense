@@ -20,7 +20,7 @@ GROQ_MODEL = "llama-3.3-70b-versatile"
 
 
 async def stream_persona_response(persona_key, transcript_entries,
-                                   turn_number=None, tavily_context=None):
+                                   turn_number=None, tavily_context=None, mode='panel'):
     """
     Async generator that streams Groq LLM response chunks for a persona.
 
@@ -55,16 +55,20 @@ async def stream_persona_response(persona_key, transcript_entries,
         transcript_entries,
         turn_number=turn_number,
         tavily_context=tavily_context,
+        mode=mode,
     )
 
     client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+
+    # Deep dive mode gets more tokens for detailed analysis
+    max_tokens = 4096 if mode == 'deep_dive' else 1024
 
     stream = await client.chat.completions.create(
         messages=messages,
         model=GROQ_MODEL,
         stream=True,
         temperature=0.8,
-        max_tokens=1024,
+        max_tokens=max_tokens,
     )
 
     async for chunk in stream:

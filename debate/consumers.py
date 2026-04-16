@@ -97,14 +97,19 @@ class DebateConsumer(AsyncWebsocketConsumer):
             return
 
         target_persona = data.get('target', 'all')
+        mode = data.get('mode', 'panel')
         
         # Prepend explicit tag and make the targeted persona respond FIRST
         if target_persona in PERSONAS:
             target_name = PERSONAS[target_persona]['name']
             transcript_content = f"[Founder speaking directly to {target_name}]: {content}"
             
-            # Put target persona first, then the remaining personas
-            personas_to_fire = [target_persona] + [p for p in PERSONA_ORDER if p != target_persona]
+            if mode == 'deep_dive':
+                # Deep dive: only the targeted persona fires
+                personas_to_fire = [target_persona]
+            else:
+                # Panel: target fires first, then the rest
+                personas_to_fire = [target_persona] + [p for p in PERSONA_ORDER if p != target_persona]
         else:
             transcript_content = content
             personas_to_fire = PERSONA_ORDER
@@ -127,7 +132,7 @@ class DebateConsumer(AsyncWebsocketConsumer):
             tavily_context = None
             if persona_key == 'competitor':
                 tavily_context = await tavily_task
-            await self._stream_persona(persona_key, turn, tavily_context=tavily_context)
+            await self._stream_persona(persona_key, turn, tavily_context=tavily_context, mode=mode)
 
         # Check if this was the final turn
         is_final = turn >= 5
@@ -147,7 +152,7 @@ class DebateConsumer(AsyncWebsocketConsumer):
             'is_final': is_final,
         }))
 
-    async def _stream_persona(self, persona_key, turn, tavily_context=None):
+    async def _stream_persona(self, persona_key, turn, tavily_context=None, mode='panel'):
         """
         Stream a single persona's response from Groq LLM to the client.
 
@@ -180,6 +185,7 @@ class DebateConsumer(AsyncWebsocketConsumer):
                 transcript_entries,
                 turn_number=turn,
                 tavily_context=tavily_context,
+                mode=mode,
             ):
                 full_response.append(chunk)
                 await self.send(text_data=json.dumps({
