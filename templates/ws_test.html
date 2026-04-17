@@ -247,6 +247,15 @@
         .btn-send { background: #6366f1; color: white; }
         .btn-deep-send { background: #7c3aed; color: white; }
         .btn-connect { background: #059669; color: white; }
+        .btn-mic { background: #374151; color: white; padding: 0.7rem; min-width: 44px; }
+        .btn-mic.recording { background: #ef4444; animation: pulse-mic 1.5s infinite; }
+        .btn-mute { background: #374151; color: white; padding: 0.7rem; min-width: 44px; }
+        
+        @keyframes pulse-mic {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
 
         .log-area {
             margin-top: 1rem;
@@ -311,15 +320,18 @@
     <!-- Panel Mode Controls -->
     <div class="controls" id="panelControls">
         <input id="message" type="text" placeholder="Speak your pitch..." />
+        <button class="btn-mic" id="micBtn" onclick="toggleMic('panel')" title="Voice Input">🎙️</button>
         <div class="controls-panel">
             <button class="btn-send" id="sendBtnAll" onclick="sendPitch('all')" disabled>Send Pitch (All)</button>
         </div>
+        <button class="btn-mute" id="muteBtn" onclick="toggleMute()" title="Mute Output">🔊</button>
         <button class="btn-connect" onclick="connectWs()" style="height: fit-content;">Reconnect</button>
     </div>
 
     <!-- Deep Dive Mode Controls -->
     <div class="controls" id="deepDiveControls" style="display:none;">
         <input id="deepMessage" type="text" placeholder="Ask a follow-up question..." />
+        <button class="btn-mic" id="micBtnDeep" onclick="toggleMic('deep_dive')" title="Voice Input">🎙️</button>
         <button class="btn-deep-send" id="sendBtnDeep" onclick="sendDeepDive()" disabled>Send</button>
         <button class="btn-connect" onclick="connectWs()" style="height: fit-content;">Reconnect</button>
     </div>
@@ -599,6 +611,10 @@
                     log(`Turn ${data.turn} started`);
                     break;
 
+                case 'persona_audio':
+                    playPersonaAudio(data.persona, data.audio_base64);
+                    break;
+
                 case 'persona_start':
                     setPersonaStatus(data.persona, 'streaming');
                     log(`${data.emoji} ${data.name} responding...`);
@@ -734,7 +750,162 @@
             if (e.key === 'Enter') sendDeepDive();
         });
 
-        // Auto-connect on load
+        // ── Speech to Text (Voice Input) ──────────────────────
+
+        let recognition = null;
+        let isRecording = false;
+        let activeMicTarget = null; // 'panel' or 'deep_dive'
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                let finalTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                const input = activeMicTarget === 'panel' ? $('message') : $('deepMessage');
+                if (finalTranscript) {
+                    input.value = input.value + finalTranscript;
+                } else if (interimTranscript) {
+                    const currentVal = input.value;
+                    // Note: interim overwriting logic can be tricky, for simplicity
+                    // we append interim temporarily, but a real app replaces it.
+                    // For this basic test we just rely on final.
+                }
+            };
+
+            recognition.onend = () => {
+                resetMicState();
+                const input = activeMicTarget === 'panel' ? $('message') : $('deepMessage');
+                if (input.value.trim().length > 0) {
+                    if (activeMicTarget === 'panel') {
+                        sendPitch('all');
+                    } else {
+                        sendDeepDive();
+                    }
+                }
+            };
+
+            recognition.onerror = (event) => {
+                log(`Speech recognition error: ${event.error}`);
+                resetMicState();
+            };
+        } else {
+            $('micBtn').disabled = true;
+            $('micBtn').title = "Voice input requires Chrome/Edge";
+            $('micBtnDeep').disabled = true;
+            $('micBtnDeep').title = "Voice input requires Chrome/Edge";
+            log("Speech recognition not supported in this browser.");
+        }
+
+        function toggleMic(target) {
+            if (!recognition) return;
+
+            if (isRecording) {
+                recognition.stop();
+            } else {
+                activeMicTarget = target;
+                const input = activeMicTarget === 'panel' ? $('message') : $('deepMessage');
+                input.value = ''; // clear input before recording
+                try {
+                    recognition.start();
+                    isRecording = true;
+                    if (target === 'panel') {
+                        $('micBtn').classList.add('recording');
+                    } else {
+                        $('micBtnDeep').classList.add('recording');
+                    }
+                    log("Listening...");
+                } catch (e) {
+                    log("Could not start microphone.");
+                }
+            }
+        }
+
+        function resetMicState() {
+            isRecording = false;
+            $('micBtn').classList.remove('recording');
+            $('micBtnDeep').classList.remove('recording');
+        }
+
+        // ── Text to Speech (Audio Output) ─────────────────────
+
+        let isMuted = false;
+        let audioQueue = [];
+        let isPlayingAudio = false;
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            $('muteBtn').textContent = isMuted ? '🔇' : '🔊';
+            log(isMuted ? "Audio muted" : "Audio unmuted");
+            
+            if (isMuted && isPlayingAudio) {
+                // If we want to instantly stop, we'd need to keep the Audio object reference.
+                // For simplicity, it just skips future queue items.
+                audioQueue = []; // clear queue
+            }
+        }
+
+        function playPersonaAudio(persona, audioBase64) {
+            if (isMuted) return;
+
+            // Decode base64 to Blob
+            const binaryString = window.atob(audioBase64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            const blob = new Blob([bytes], { type: 'audio/mpeg' });
+            const url = URL.createObjectURL(blob);
+
+            audioQueue.push({ persona, url });
+            processAudioQueue();
+        }
+
+        function processAudioQueue() {
+            if (isPlayingAudio || audioQueue.length === 0 || isMuted) return;
+
+            isPlayingAudio = true;
+            const currentAudio = audioQueue.shift();
+            
+            log(`▶️ Playing audio for ${currentAudio.persona}...`);
+            const audio = new Audio(currentAudio.url);
+            
+            audio.onended = () => {
+                isPlayingAudio = false;
+                URL.revokeObjectURL(currentAudio.url);
+                processAudioQueue();
+            };
+            
+            audio.onerror = (e) => {
+                log(`Error playing audio for ${currentAudio.persona}`);
+                isPlayingAudio = false;
+                URL.revokeObjectURL(currentAudio.url);
+                processAudioQueue();
+            };
+
+            audio.play().catch(e => {
+                log(`Playback blocked: ${e.message}`);
+                isPlayingAudio = false;
+                processAudioQueue();
+            });
+        }
+
+        // ── Auto-connect on load ──────────────────────────────
         window.addEventListener('load', connectWs);
     </script>
 </body>

@@ -17,6 +17,7 @@ from .models import DebateSession, GlobalTranscript
 from .personas import PERSONAS, PERSONA_ORDER
 from .services.groq_service import stream_persona_response
 from .services.tavily_service import get_competitor_context
+from .services.tts_service import synthesize_speech
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +208,17 @@ class DebateConsumer(AsyncWebsocketConsumer):
                 'turn': turn,
                 'full_content': full_text,
             }))
+
+            # Synthesize TTS audio AFTER text streaming is complete
+            voice = persona.get('voice', 'en-US-GuyNeural')
+            audio_b64 = await synthesize_speech(full_text, voice)
+            if audio_b64:
+                await self.send(text_data=json.dumps({
+                    'type': 'persona_audio',
+                    'persona': persona_key,
+                    'turn': turn,
+                    'audio_base64': audio_b64,
+                }))
 
         except Exception as e:
             logger.error(f"Persona {persona_key} streaming error: {e}", exc_info=True)
