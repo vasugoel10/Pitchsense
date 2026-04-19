@@ -15,7 +15,7 @@ async def get_competitor_context(pitch_text: str) -> str:
     try:
         from tavily import AsyncTavilyClient
         client = AsyncTavilyClient(api_key=api_key)
-        query = f"Market context, existing competitors, and potential flaws for a startup doing: {pitch_text[:500]}"
+        query = f"Market context, existing competitors, and potential flaws for a startup doing: {pitch_text[:300]}"
         response = await client.search(query=query)
         
         results = response.get('results', [])

@@ -209,16 +209,10 @@ class DebateConsumer(AsyncWebsocketConsumer):
                 'full_content': full_text,
             }))
 
-            # Synthesize TTS audio AFTER text streaming is complete
-            voice = persona.get('voice', 'en-US-GuyNeural')
-            audio_b64 = await synthesize_speech(full_text, voice)
-            if audio_b64:
-                await self.send(text_data=json.dumps({
-                    'type': 'persona_audio',
-                    'persona': persona_key,
-                    'turn': turn,
-                    'audio_base64': audio_b64,
-                }))
+            # Synthesize TTS audio asynchronously so it doesn't block turn completion
+            if full_text.strip():
+                voice = persona.get('voice', 'en-US-GuyNeural')
+                asyncio.create_task(self._synthesize_and_send_audio(persona_key, turn, full_text, voice))
 
         except Exception as e:
             logger.error(f"Persona {persona_key} streaming error: {e}", exc_info=True)
@@ -228,6 +222,19 @@ class DebateConsumer(AsyncWebsocketConsumer):
                 'turn': turn,
                 'error': str(e),
             }))
+
+    async def _synthesize_and_send_audio(self, persona_key, turn, text, voice):
+        try:
+            audio_b64 = await synthesize_speech(text, voice)
+            if audio_b64:
+                await self.send(text_data=json.dumps({
+                    'type': 'persona_audio',
+                    'persona': persona_key,
+                    'turn': turn,
+                    'audio_base64': audio_b64,
+                }))
+        except Exception as e:
+            logger.error(f"TTS background task failed for {persona_key}: {e}", exc_info=True)
 
     # ── Database helpers ──────────────────────────────────────────────
 

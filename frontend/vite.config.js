@@ -11,7 +11,7 @@ export default defineConfig({
   base: '/static/', // Django static URL routing
   build: {
     outDir: 'build',
-    assetsDir: 'static', // This makes it build/static/
+    assetsDir: '', // This outputs directly into build/ so Django doesn't double prefix
     emptyOutDir: true,
   }
 })

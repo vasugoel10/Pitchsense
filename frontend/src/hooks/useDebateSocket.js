@@ -157,6 +157,7 @@ export function useDebateSocket() {
       }
       
       ws.current.send(JSON.stringify({
+        type: 'user_pitch', // Fixed message type
         content,
         target,
         mode
