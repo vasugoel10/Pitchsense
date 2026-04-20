@@ -18,11 +18,9 @@ db.sqlite3
 db.sqlite3-journal
 *.log
 media/
-
-# Static files (collected)
 staticfiles/
 
-# Frontend build (generated)
+# Frontend
 frontend/build/
 frontend/node_modules/
 
@@ -36,19 +34,13 @@ frontend/node_modules/
 .DS_Store
 Thumbs.db
 
-# Environment variables
+# Environment
 .env
 .env.local
 
-# AI agent scaffolding (local dev tooling — not part of the project)
+# Misc
 .agent/
 .agents/
 .gsd/
 .gemini/
-
-# Audio artifacts
 *.mp3
-
-# Test audio files
-test.mp3
-test_jenny.mp3

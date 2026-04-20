@@ -20,5 +20,12 @@ from debate import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/csrf/', views.csrf_token, name='csrf_token'),
+    path('api/login/', views.login_api, name='login_api'),
+    path('api/register/', views.register_api, name='register_api'),
+    path('api/auth-check/', views.check_auth, name='check_auth'),
+    path('api/logout/', views.logout_api, name='logout_api'),
+    path('api/delete-account/', views.delete_account_api, name='delete_account'),
+    path('api/admin/sessions/', views.admin_sessions_api, name='admin_sessions'),
     re_path(r'^.*$', views.react_app, name='react-app'),
 ]

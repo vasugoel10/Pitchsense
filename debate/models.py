@@ -9,7 +9,7 @@ Core models:
 import uuid
 from django.db import models, transaction
 from django.utils import timezone
-
+from django.contrib.auth.models import User
 
 class DebateSession(models.Model):
     """
@@ -23,6 +23,7 @@ class DebateSession(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='debates')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='waiting')
     current_turn = models.IntegerField(default=0)
     pitch_topic = models.TextField(blank=True, default='')

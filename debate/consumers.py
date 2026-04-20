@@ -42,15 +42,46 @@ class DebateConsumer(AsyncWebsocketConsumer):
     """
 
     async def connect(self):
+        user = self.scope.get('user')
+        if not user or not user.is_authenticated:
+            await self.close(code=4001) # Unauthorized
+            return
+
         self.session_id = self.scope['url_route']['kwargs']['session_id']
-        self.debate_session = await self._get_or_create_session()
+        self.debate_session = await self._get_or_create_session(user)
+
+        # Prevent session hijacking — reject if session belongs to another user
+        if self.debate_session.user and self.debate_session.user.id != user.id and not user.is_superuser:
+            await self.close(code=4002)  # Forbidden — not your session
+            return
+
+        # Check pitch limits for customers
+        if not user.is_superuser:
+            pitch_count = await self._get_user_pitch_count(user)
+            if pitch_count > 5:
+                await self.accept()
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'You have reached the maximum limit of 5 pitches. Upgrade or contact support.'
+                }))
+                await self.close(code=4003)
+                return
 
         await self.accept()
+        transcript = await self._get_transcript()
+        history = [
+            {'role': entry.role, 'content': entry.content, 'turn': entry.turn_number}
+            for entry in transcript
+        ]
+
         await self.send(text_data=json.dumps({
             'type': 'connection_established',
             'session_id': str(self.debate_session.id),
             'status': self.debate_session.status,
             'current_turn': self.debate_session.current_turn,
+            'history': history,
+            'scorecard': self.debate_session.scorecard,
+            'is_admin': user.is_superuser,
             'message': 'Connected to PitchSense debate session.',
         }))
 
@@ -60,6 +91,16 @@ class DebateConsumer(AsyncWebsocketConsumer):
 
         if message_type == 'user_pitch':
             await self._handle_user_pitch(data)
+            
+        elif message_type == 'generate_scorecard':
+            user = self.scope.get('user')
+            if user and user.is_superuser:
+                await self._generate_and_send_scorecard()
+            else:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Only admins can manually generate scorecards.'
+                }))
 
         elif message_type == 'ping':
             await self.send(text_data=json.dumps({
@@ -80,6 +121,7 @@ class DebateConsumer(AsyncWebsocketConsumer):
 
     async def _handle_user_pitch(self, data):
         """Handle a user's pitch input and trigger all persona responses."""
+        user = self.scope.get('user')
         content = data.get('content', '').strip()
         if not content:
             await self.send(text_data=json.dumps({
@@ -87,15 +129,20 @@ class DebateConsumer(AsyncWebsocketConsumer):
                 'message': 'Empty pitch content.',
             }))
             return
-
-        # Check if debate is already completed
-        session = await self._refresh_session()
-        if session.status == 'completed':
-            await self.send(text_data=json.dumps({
-                'type': 'error',
-                'message': 'This debate session is already completed (5 turns).',
-            }))
-            return
+        
+        # Cap input length to prevent abuse
+        if len(content) > 2000:
+            content = content[:2000]
+            
+        # Check Turn Limits for customers
+        if not user.is_superuser:
+            session = await self._refresh_session()
+            if session.current_turn >= 2:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Customers are limited to 2 turns per pitch. Upgrade for unlimited deep dives.'
+                }))
+                return
 
         target_persona = data.get('target', 'all')
         mode = data.get('mode', 'panel')
@@ -135,23 +182,27 @@ class DebateConsumer(AsyncWebsocketConsumer):
                 tavily_context = await tavily_task
             await self._stream_persona(persona_key, turn, tavily_context=tavily_context, mode=mode)
 
-        # Check if this was the final turn
-        is_final = turn >= 5
-        if is_final:
-            transcript = await self._get_transcript()
-            from .services.groq_service import generate_scorecard
-            scorecard_data = await generate_scorecard(transcript)
-            await self.send(text_data=json.dumps({
-                'type': 'scorecard_generated',
-                'scorecard': scorecard_data,
-            }))
-            await self._complete_session()
+        # For customers, auto-generate scorecard on Turn 2
+        is_final = False
+        if not user.is_superuser and turn == 2:
+            is_final = True
+            await self._generate_and_send_scorecard()
 
         await self.send(text_data=json.dumps({
             'type': 'turn_complete',
             'turn': turn,
             'is_final': is_final,
         }))
+
+    async def _generate_and_send_scorecard(self):
+        transcript = await self._get_transcript()
+        from .services.groq_service import generate_scorecard
+        scorecard_data = await generate_scorecard(transcript)
+        await self.send(text_data=json.dumps({
+            'type': 'scorecard_generated',
+            'scorecard': scorecard_data,
+        }))
+        await self._complete_session(scorecard_data)
 
     async def _stream_persona(self, persona_key, turn, tavily_context=None, mode='panel'):
         """
@@ -227,26 +278,38 @@ class DebateConsumer(AsyncWebsocketConsumer):
         try:
             audio_b64 = await synthesize_speech(text, voice)
             if audio_b64:
-                await self.send(text_data=json.dumps({
-                    'type': 'persona_audio',
-                    'persona': persona_key,
-                    'turn': turn,
-                    'audio_base64': audio_b64,
-                }))
+                # Guard: only send if WebSocket is still open
+                try:
+                    await self.send(text_data=json.dumps({
+                        'type': 'persona_audio',
+                        'persona': persona_key,
+                        'turn': turn,
+                        'audio_base64': audio_b64,
+                    }))
+                except Exception:
+                    pass  # Client disconnected before TTS finished — ignore
         except Exception as e:
             logger.error(f"TTS background task failed for {persona_key}: {e}", exc_info=True)
 
     # ── Database helpers ──────────────────────────────────────────────
 
     @database_sync_to_async
-    def _get_or_create_session(self):
+    def _get_user_pitch_count(self, user):
+        """Get the number of debate sessions owned by this user."""
+        return DebateSession.objects.filter(user=user).count()
+
+    @database_sync_to_async
+    def _get_or_create_session(self, user):
         """Get existing session or create a new one."""
         try:
             session_uuid = uuid.UUID(self.session_id)
             session, created = DebateSession.objects.get_or_create(id=session_uuid)
+            if not session.user:
+                session.user = user
+                session.save()
             return session
         except (ValueError, DebateSession.DoesNotExist):
-            return DebateSession.objects.create()
+            return DebateSession.objects.create(id=self.session_id, user=user)
 
     @database_sync_to_async
     def _refresh_session(self):
@@ -268,12 +331,14 @@ class DebateConsumer(AsyncWebsocketConsumer):
             return session.current_turn
 
     @database_sync_to_async
-    def _complete_session(self):
-        """Mark the debate session as completed."""
+    def _complete_session(self, scorecard_data=None):
+        """Mark the debate session as completed and save scorecard."""
         from django.db import transaction
         with transaction.atomic():
             session = DebateSession.objects.select_for_update().get(pk=self.debate_session.id)
             session.status = 'completed'
+            if scorecard_data:
+                session.scorecard = scorecard_data
             session.save()
             self.debate_session = session
 

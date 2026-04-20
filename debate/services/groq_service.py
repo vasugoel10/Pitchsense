@@ -63,13 +63,33 @@ async def stream_persona_response(persona_key, transcript_entries,
     # Deep dive mode gets more tokens for detailed analysis
     max_tokens = 4096 if mode == 'deep_dive' else 1024
 
-    stream = await client.chat.completions.create(
-        messages=messages,
-        model=GROQ_MODEL,
-        stream=True,
-        temperature=0.8,
-        max_tokens=max_tokens,
-    )
+    # Fallback sequence of models
+    models_to_try = [
+        "llama-3.3-70b-versatile",
+        "mixtral-8x7b-32768",
+        "llama-3.1-8b-instant"
+    ]
+
+    stream = None
+    used_model = None
+
+    for model in models_to_try:
+        try:
+            stream = await client.chat.completions.create(
+                messages=messages,
+                model=model,
+                stream=True,
+                temperature=0.8,
+                max_tokens=max_tokens,
+            )
+            used_model = model
+            break  # Success, exit the fallback loop
+        except Exception as e:
+            logger.warning(f"Model {model} failed: {e}. Trying next fallback...")
+            continue
+            
+    if not stream:
+        raise RuntimeError("All fallback models failed to generate a response.")
 
     async for chunk in stream:
         content = chunk.choices[0].delta.content
@@ -107,37 +127,51 @@ Output nothing else."""
         {"role": "user", "content": debate_text}
     ]
     
+    models_to_try = [
+        "llama-3.3-70b-versatile",
+        "mixtral-8x7b-32768",
+        "llama-3.1-8b-instant"
+    ]
+    
     content = ""
     # Layer 1
-    try:
-        response = await client.chat.completions.create(
-            messages=messages,
-            model=GROQ_MODEL,
-            response_format={"type": "json_object"},
-            temperature=0.1,
-            max_tokens=500,
-        )
-        content = response.choices[0].message.content
-        return json.loads(content)
-    except json.JSONDecodeError:
-        pass
-    except Exception as e:
-        logger.error(f"Layer 1 JSON parsing failed: {e}")
+    for model in models_to_try:
+        try:
+            response = await client.chat.completions.create(
+                messages=messages,
+                model=model,
+                response_format={"type": "json_object"},
+                temperature=0.1,
+                max_tokens=500,
+            )
+            content = response.choices[0].message.content
+            return json.loads(content)
+        except json.JSONDecodeError:
+            break # Not an API failure, JSON format failure. Proceed to layer 2
+        except Exception as e:
+            logger.warning(f"Layer 1 model {model} failed: {e}. Trying next...")
+            continue
 
     # Layer 2: Retry
-    try:
-        retry_prompt = "Output STRICT JSON ONLY matching the required format."
-        messages.append({"role": "assistant", "content": content})
-        messages.append({"role": "user", "content": retry_prompt})
-        response = await client.chat.completions.create(
-            messages=messages,
-            model=GROQ_MODEL,
-            temperature=0.1,
-            max_tokens=500,
-        )
-        return json.loads(response.choices[0].message.content)
-    except Exception as e:
-        logger.error(f"Layer 2 JSON parsing failed: {e}")
+    for model in models_to_try:
+        try:
+            retry_prompt = "Output STRICT JSON ONLY matching the required format."
+            # Only append if content exists, else use standard prompt
+            current_messages = list(messages)
+            if content:
+                current_messages.append({"role": "assistant", "content": content})
+            current_messages.append({"role": "user", "content": retry_prompt})
+            
+            response = await client.chat.completions.create(
+                messages=current_messages,
+                model=model,
+                temperature=0.1,
+                max_tokens=500,
+            )
+            return json.loads(response.choices[0].message.content)
+        except Exception as e:
+            logger.warning(f"Layer 2 model {model} failed: {e}. Trying next...")
+            continue
 
     # Layer 3: Hardcoded fallback
     return _get_fallback_scorecard()

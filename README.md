@@ -1,132 +1,80 @@
-# PitchSense 🚀 — AI-Powered Startup Debate Arena
+# PitchSense
 
-![PitchSense Hero Banner](./assets/images/hero_banner.png)
+An AI debate arena where you pitch your startup idea and three AI personas tear it apart.
 
-> **"Don't pitch to an empty room. Pitch to the critics who will actually matter."**
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/)
-[![Django](https://img.shields.io/badge/Django-4.2-green)](https://djangoproject.com/)
-[![React](https://img.shields.io/badge/React-19-61DAFB)](https://react.dev/)
-[![Groq](https://img.shields.io/badge/LLM-Groq%20%7C%20Llama3-orange)](https://groq.com/)
+![hero](./assets/images/hero_banner.png)
 
 ---
 
-## 💡 Why I Built This
+## Why I built this
 
-Every founder practices their pitch — but they practice with supportive friends, not adversarial investors. I noticed that the biggest reason startups fail at funding rounds isn't a bad idea; it's an untested idea. Founders never face hard questions until it's too late.
+I kept seeing founders (including people I know) go into investor meetings completely unprepared for the hard questions. Not because their ideas were bad — just because nobody had actually challenged them before. Friends are too nice. Online feedback is too generic.
 
-I built PitchSense to fix that. It simulates a high-stakes panel meeting with three AI personas who actively challenge your assumptions, contradict each other, and use live web data to punch holes in your pitch — before you walk into a real room. The goal was to build something that felt genuinely stressful and useful, not a toy chatbot.
+So I built something that isn't nice. Three AI personas with distinct goals — an investor who cares about numbers, a customer who cares about friction, and a competitor who actually searches the web in real-time to find who's already doing what you're pitching. They debate each other, not just you. After 5 turns you get a structured verdict: kill it, pivot, or proceed.
 
----
-
-## 🔥 Key Features
-
-| Feature | Details |
-|---|---|
-| 🎙️ **Voice-First Input** | Speak your pitch hands-free via browser-native Speech Recognition |
-| ⚡ **Ultra-Low Latency** | Token-streaming via Groq's LPU™ engine + Django Channels WebSockets |
-| 🧠 **Shared Memory Model** | All three personas read each other's responses — they remember and double down |
-| 🌐 **Live Market Intel** | Competitor persona fires real-time Tavily searches for actual rivals & funding rounds |
-| 🔊 **Realistic Voice Synthesis** | Edge-TTS generates high-quality audio for every AI response |
-| 📊 **Final Verdict** | 5-turn debate ends with a structured JSON scorecard: **KILL / PIVOT / PROCEED** |
+It's genuinely uncomfortable to use, which I think means it's working.
 
 ---
 
-## 🎭 The Panel
+## What it does
 
-| Persona | Role | Specialty |
+- You speak your pitch (voice input via browser STT)
+- Three AI personas respond and debate in sequence, each reading what the others said
+- The Competitor persona fires a live Tavily web search while you're pitching — so it'll actually name real companies threatening your idea
+- Responses are streamed token-by-token via Groq (so it feels fast, not like waiting for ChatGPT)
+- Every response gets converted to speech with Edge-TTS and played back
+- After turn 5, the panel reaches a consensus verdict with a JSON scorecard
+
+The three personas:
+
+| | Role | What they attack |
 |---|---|---|
-| **Ava Chen** | *The Investor* | Attacks unit economics, TAM/SAM, and execution moats |
-| **Rohan Mehta** | *The Customer* | Focuses on switching costs, friction, and daily user pain |
-| **Sara Lin** | *The Competitor* | Uses live web search to dismantle your unique edge |
+| Ava Chen | Investor | Unit economics, market size, why you'll lose |
+| Rohan Mehta | Customer | Why a normal person wouldn't actually use this |
+| Sara Lin | Competitor | Uses live web data to find who's already doing it |
 
 ---
 
-## 🛠️ Tech Stack
+## Tech stack
 
-![Tech Stack](./assets/images/tech_stack.png)
-
-| Layer | Technology |
-|---|---|
-| **Frontend** | React 19 + Vite + Tailwind CSS v4 |
-| **Backend** | Django 4.2 + Django Channels (ASGI) |
-| **Real-time** | WebSockets via Daphne |
-| **LLM Engine** | Groq API (Llama 3 / Mixtral) |
-| **Web Search** | Tavily API |
-| **TTS** | Microsoft Edge-TTS |
-| **STT** | Browser WebKit Speech API |
-| **Database** | SQLite with `select_for_update` for concurrent session safety |
+- **Backend:** Django + Django Channels (ASGI) — WebSockets for real-time streaming
+- **Frontend:** React 19 + Vite + Tailwind v4
+- **LLM:** Groq API (Llama 3) — streaming responses
+- **Search:** Tavily API — real-time web search for the Competitor persona
+- **TTS:** Microsoft Edge-TTS
+- **STT:** Browser WebKit Speech API (no API key needed)
+- **Server:** Daphne (ASGI)
+- **DB:** SQLite with `select_for_update` to handle concurrent persona writes safely
 
 ---
 
-## 🔄 How It Works
+## Running it locally
 
-```
-Founder speaks → WebSocket → Django backend
-                                  ├── Tavily search fires (async, background)
-                                  ├── Groq streams Investor response token-by-token
-                                  ├── Response saved to GlobalTranscript (shared memory)
-                                  ├── Customer & Competitor read transcript → respond in turn
-                                  └── Edge-TTS audio chunks pushed to frontend for playback
-```
-
-After 5 turns → JSON scorecard generated with final **KILL / PIVOT / PROCEED** verdict.
-
----
-
-## 📊 The Final Scorecard
-
-![Scorecard Mockup](./assets/images/scorecard_mockup.png)
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
+You need:
 - Python 3.10+
 - Node.js 20+
-- A [Groq API key](https://console.groq.com/keys) (free tier works)
-- A [Tavily API key](https://app.tavily.com/home) (free tier works)
+- A Groq API key (free at console.groq.com)
+- A Tavily API key (free at app.tavily.com)
 
-### 1. Clone & Configure
+**Backend:**
 
 ```bash
 git clone https://github.com/vasugoel10/pitchsense.git
 cd pitchsense
 
-# Copy the environment template and fill in your keys
-cp .env.example .env
-```
-
-Edit `.env` with your actual API keys:
-
-```env
-DJANGO_SECRET_KEY=your-django-secret-key
-GROQ_API_KEY=gsk_...
-TAVILY_API_KEY=tvly-...
-```
-
-### 2. Backend Setup
-
-```bash
-# Create and activate a virtual environment
 python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS / Linux
+venv\Scripts\activate
 
-# Install all Python dependencies
 pip install -r requirements.txt
 
-# Run database migrations
-python manage.py migrate
+# Copy the env template and fill in your keys
+cp .env.example .env
 
-# Start the ASGI server (WebSocket support)
+python manage.py migrate
 daphne pitchsense.asgi:application
 ```
 
-### 3. Frontend Setup
+**Frontend** (in a separate terminal):
 
 ```bash
 cd frontend
@@ -134,58 +82,51 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) and start pitching.
+Then open http://localhost:5173 and start pitching.
 
 ---
 
-## 🏗️ Project Structure
+## Scorecard
 
-```text
+![scorecard](./assets/images/scorecard_mockup.png)
+
+At the end of the debate you get a breakdown of your biggest risks and a final verdict. The personas actually disagree with each other sometimes which makes the output more interesting than a single LLM critique.
+
+---
+
+## Project layout
+
+```
 pitchsense/
-├── debate/                  # Core Django app
-│   ├── consumers.py         # WebSocket orchestrator — debate turn logic
-│   ├── personas.py          # AI system prompts & persona definitions
-│   ├── models.py            # GlobalTranscript & DebateSession models
-│   ├── views.py             # REST endpoints (session management, scorecard)
+├── debate/
+│   ├── consumers.py      # WebSocket handler, debate orchestration
+│   ├── personas.py       # System prompts for each AI persona
+│   ├── models.py         # DebateSession + GlobalTranscript
+│   ├── views.py          # REST endpoints, session management
 │   └── services/
-│       ├── groq_service.py  # LLM streaming via Groq
-│       ├── tavily_service.py# Live web search for Competitor persona
-│       └── tts_service.py   # Edge-TTS audio synthesis
-├── frontend/                # React + Vite + Tailwind application
-│   └── src/
-├── pitchsense/              # Django project config (ASGI, settings, URLs)
-├── .env.example             # ← Copy this to .env and add your keys
-├── requirements.txt         # Python dependencies
-└── LICENSE                  # MIT
+│       ├── groq_service.py    # Streaming LLM calls
+│       ├── tavily_service.py  # Web search for Sara
+│       └── tts_service.py     # Edge-TTS audio synthesis
+├── frontend/src/
+├── pitchsense/           # Django settings, ASGI config
+├── .env.example
+└── requirements.txt
 ```
 
 ---
 
-## 🔑 Environment Variables
+## Environment variables
 
-See [`.env.example`](.env.example) for the full list. Required keys:
+Copy `.env.example` to `.env` and fill in:
 
-| Variable | Description | Where to Get It |
-|---|---|---|
-| `DJANGO_SECRET_KEY` | Django cryptographic key | [djecrety.ir](https://djecrety.ir/) |
-| `GROQ_API_KEY` | LLM inference API | [console.groq.com](https://console.groq.com/keys) |
-| `TAVILY_API_KEY` | Real-time web search | [app.tavily.com](https://app.tavily.com/home) |
-
----
-
-## 🤝 Contributing
-
-1. Fork the repo
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Commit your changes with descriptive messages
-4. Open a pull request
+```
+DJANGO_SECRET_KEY=...
+GROQ_API_KEY=...
+TAVILY_API_KEY=...
+```
 
 ---
 
-## 📄 License
+## License
 
-This project is licensed under the **MIT License** — see [LICENSE](./LICENSE) for details.
-
----
-
-*Built with ❤️ for the next generation of founders.*
+MIT

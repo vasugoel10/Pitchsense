@@ -3,7 +3,7 @@ import { useDebate } from '../context/DebateContext';
 import VoiceInput from './VoiceInput';
 
 export default function ControlBar() {
-  const { connectionStatus, currentMode, isProcessing, activePersona, sendPitch, isMuted, toggleMute } = useDebate();
+  const { connectionStatus, currentMode, isProcessing, activePersona, sendPitch, generateScorecard, isMuted, toggleMute } = useDebate();
   const [inputValue, setInputValue] = useState('');
 
   const handleSend = () => {
@@ -18,13 +18,13 @@ export default function ControlBar() {
   };
 
   const handleVoiceSend = (transcript) => {
-    setInputValue((prev) => prev + (prev ? ' ' : '') + transcript);
-    // Auto-send after a voice transcript completes
-    setTimeout(() => {
-      if (currentMode === 'panel') sendPitch(transcript, 'all', 'panel');
-      else sendPitch(transcript, activePersona, 'deep_dive');
-      setInputValue('');
-    }, 500);
+    if (isProcessing) return; // Don't auto-send while AI is responding
+    
+    if (currentMode === 'panel') {
+      sendPitch(transcript, 'all', 'panel');
+    } else {
+      sendPitch(transcript, activePersona, 'deep_dive');
+    }
   };
 
   const onKeyDown = (e) => {
@@ -53,6 +53,21 @@ export default function ControlBar() {
           className="flex-1 bg-black/40 border border-[var(--border-default)] focus:border-indigo-500 rounded-xl px-4 py-3 text-sm text-gray-200 outline-none transition-colors placeholder:text-gray-600"
           disabled={isProcessing || connectionStatus !== 'connected'}
         />
+
+        {sessionStorage.getItem('pitchsense_user_role') === 'admin' && (
+          <button 
+            onClick={generateScorecard}
+            disabled={isProcessing || connectionStatus !== 'connected'}
+            className={`px-4 py-3 rounded-xl font-semibold transition-all shadow-lg text-sm
+              ${isProcessing || connectionStatus !== 'connected'
+                ? 'bg-gray-800 text-gray-500 cursor-not-allowed hidden sm:block'
+                : 'bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30'
+              }`}
+            title="Force Scorecard Generation"
+          >
+            Generate Scorecard
+          </button>
+        )}
 
         <button 
           onClick={handleSend}

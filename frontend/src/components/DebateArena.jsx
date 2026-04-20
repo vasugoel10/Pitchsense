@@ -40,11 +40,15 @@ export default function DebateArena() {
           <div className="flex items-center gap-3">
             <span className="text-sm font-semibold text-gray-400">Turn</span>
             <div className="flex gap-1.5">
-              {[1,2,3,4,5].map(t => (
-                <div key={t} className={`h-2.5 w-8 rounded-full transition-all duration-300
-                  ${t < currentTurn ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]' : 
-                    t === currentTurn ? 'bg-indigo-400 animate-pulse outline outline-1 outline-offset-1 outline-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.6)]' : 'bg-[#2d2d3d]'}`} />
-              ))}
+              {(() => {
+                const role = sessionStorage.getItem('pitchsense_user_role') || 'customer';
+                const maxTurns = role === 'admin' ? Math.max(5, currentTurn) : 2;
+                return Array.from({ length: maxTurns }, (_, i) => i + 1).map(t => (
+                  <div key={t} className={`h-2.5 w-8 rounded-full transition-all duration-300
+                    ${t < currentTurn ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]' : 
+                      t === currentTurn ? 'bg-indigo-400 animate-pulse outline outline-1 outline-offset-1 outline-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.6)]' : 'bg-[#2d2d3d]'}`} />
+                ));
+              })()}
             </div>
           </div>
         </div>

@@ -1,9 +1,17 @@
+import { useState, useEffect } from 'react';
 import { useDebate } from '../context/DebateContext';
 
 export default function ScorecardOverlay() {
-  const { scorecardData } = useDebate();
+  const { scorecardData, connect } = useDebate();
+  const [isOpen, setIsOpen] = useState(false);
 
-  if (!scorecardData) return null;
+  useEffect(() => {
+    if (scorecardData) {
+      setIsOpen(true);
+    }
+  }, [scorecardData]);
+
+  if (!scorecardData || !isOpen) return null;
 
   const getVerdictStyle = (v) => {
     switch (v) {
@@ -45,6 +53,14 @@ export default function ScorecardOverlay() {
         {/* Background glow top right */}
         <div className="absolute -top-20 -right-20 w-48 h-48 bg-indigo-500/20 blur-3xl rounded-full pointer-events-none" />
 
+        <button 
+          onClick={() => setIsOpen(false)}
+          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors z-20 p-2"
+          title="Close scorecard and return to debate"
+        >
+          ✕
+        </button>
+
         <div className="text-center relative z-10">
           <h2 className="text-3xl font-extrabold text-white mb-2">Final Verdict</h2>
           <p className="text-sm text-gray-400">The panel has reached a consensus.</p>
@@ -66,7 +82,11 @@ export default function ScorecardOverlay() {
         </div>
 
         <button 
-          onClick={() => window.location.reload()}
+          onClick={() => {
+            sessionStorage.removeItem('pitchsense_session_id');
+            connect(crypto.randomUUID());
+            setIsOpen(false);
+          }}
           className="w-full py-4 mt-2 bg-[#2d2d3d] hover:bg-[#3d3d4d] text-white rounded-xl font-bold tracking-wide transition-colors relative z-10 shadow-lg"
         >
           Start New Pitch

@@ -6,6 +6,7 @@ Django==4.2.30
 asgiref==3.11.1
 channels==4.3.2
 daphne==4.2.1
+whitenoise==6.9.0
 
 # WebSocket / Channels transport
 Twisted==25.5.0
