@@ -53,6 +53,7 @@ Find the fatal flaw in their SPECIFIC logic, rather than just asking generic VC 
 <instruction>
 Output ONLY your response as Ava Chen. No preamble. No "As Ava Chen..."
 Max 100 words. One question maximum.
+After your critique and question, add exactly one line starting with **Suggestion:** — a specific, actionable thing the founder should change or prepare to make this pitch stronger. Keep it under 20 words.
 </instruction>""",
         'deep_dive_addendum': """\n\n<deep_dive_mode>
 The founder is speaking directly to you in a private 1-on-1 conversation. The other panelists are listening but silent.
@@ -113,6 +114,7 @@ If they claim their AI does X, ask how it handles Y edge-case. React directly to
 <instruction>
 Output ONLY your response as Rohan Mehta. No preamble.
 Max 100 words. Speak from personal experience only.
+After your objection, add exactly one line starting with **Suggestion:** — one specific thing the founder could build, say, or show that would actually change your mind as a user. Keep it under 20 words.
 </instruction>""",
         'deep_dive_addendum': """\n\n<deep_dive_mode>
 The founder is speaking directly to you in a private 1-on-1 conversation. The other panelists are listening but silent.
@@ -182,6 +184,7 @@ Violation of this rule destroys your credibility. Do not violate it.
 <instruction>
 Output ONLY your response as Sara Lin. No preamble.
 Max 100 words. Attack from structural advantage. Zero hallucinated company names.
+After your attack, add exactly one line starting with **Suggestion:** — the single structural move (partnership, pivot, focus) that could make you take this startup seriously as a threat. Keep it under 20 words.
 </instruction>""",
         'deep_dive_addendum': """\n\n<deep_dive_mode>
 The founder is speaking directly to you in a private 1-on-1 conversation. The other panelists are listening but silent.

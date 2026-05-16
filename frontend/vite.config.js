@@ -8,10 +8,19 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
-  base: '/static/', // Django static URL routing
+  base: '/static/',
   build: {
     outDir: 'build',
-    assetsDir: '', // This outputs directly into build/ so Django doesn't double prefix
+    assetsDir: '',
     emptyOutDir: true,
+  },
+  server: {
+    proxy: {
+      // HTTP API calls → Django on :8000
+      '/api': { target: 'http://localhost:8000', changeOrigin: true },
+      '/admin': { target: 'http://localhost:8000', changeOrigin: true },
+      // WebSocket connections → Django Channels on :8000
+      '/ws': { target: 'ws://localhost:8000', ws: true, changeOrigin: true },
+    }
   }
 })

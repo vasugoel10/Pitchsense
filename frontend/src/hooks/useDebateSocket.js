@@ -6,12 +6,13 @@ const BASE_RECONNECT_DELAY_MS = 1000;
 export function useDebateSocket() {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [currentTurn, setCurrentTurn] = useState(0);
+  const [panelTurnCount, setPanelTurnCount] = useState(0);
+  const [deepDiveCounts, setDeepDiveCounts] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
-  const [currentMode, setCurrentMode] = useState('panel'); // 'panel' or 'deep_dive'
-  const [activePersona, setActivePersona] = useState(null); // null or persona key
+  const [currentMode, setCurrentMode] = useState('panel');
+  const [activePersona, setActivePersona] = useState(null);
   const [scorecardData, setScorecardData] = useState(null);
 
-  // Persona states
   const [personas, setPersonas] = useState({
     investor: { status: 'waiting', content: '', fullContent: '', chatHistory: [] },
     customer: { status: 'waiting', content: '', fullContent: '', chatHistory: [] },
@@ -24,7 +25,6 @@ export function useDebateSocket() {
   const currentAudioElement = useRef(null);
   const [isMuted, setIsMuted] = useState(false);
 
-  // Reconnect state
   const reconnectAttempts = useRef(0);
   const reconnectTimer = useRef(null);
   const lastSessionId = useRef(null);
@@ -38,7 +38,7 @@ export function useDebateSocket() {
 
     const audio = new Audio(currentAudio.url);
     currentAudioElement.current = audio;
-    
+
     audio.onended = () => {
       isPlayingAudio.current = false;
       currentAudioElement.current = null;
@@ -63,7 +63,7 @@ export function useDebateSocket() {
 
   useEffect(() => {
     if (isMuted) {
-      audioQueue.current = []; // Clear queue when muted
+      audioQueue.current = [];
       if (currentAudioElement.current) {
         currentAudioElement.current.pause();
         currentAudioElement.current.currentTime = 0;
@@ -92,7 +92,6 @@ export function useDebateSocket() {
       ws.current.close();
     }
 
-    // Clear any pending reconnect timer
     if (reconnectTimer.current) {
       clearTimeout(reconnectTimer.current);
       reconnectTimer.current = null;
@@ -100,10 +99,11 @@ export function useDebateSocket() {
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${protocol}//${window.location.host}/ws/debate/${activeSessionId}/`;
-    
-    // Only reset state on fresh connections, not reconnects
+
     if (!isReconnect) {
       setCurrentTurn(0);
+      setPanelTurnCount(0);
+      setDeepDiveCounts({});
       setScorecardData(null);
       setPersonas({
         investor: { status: 'waiting', content: '', fullContent: '', chatHistory: [] },
@@ -113,21 +113,17 @@ export function useDebateSocket() {
       setIsProcessing(false);
       reconnectAttempts.current = 0;
     }
-    
+
     setConnectionStatus('connecting');
     ws.current = new WebSocket(url);
 
     ws.current.onopen = () => {
       setConnectionStatus('connected');
-      reconnectAttempts.current = 0; // Reset on successful connect
+      reconnectAttempts.current = 0;
     };
 
     ws.current.onclose = (event) => {
       setConnectionStatus('disconnected');
-      
-      // Auto-reconnect if this wasn't an intentional close
-      // and we haven't exceeded max attempts
-      // Code 4001 = auth failure, 4003 = pitch limit — don't retry those
       if (
         !intentionalClose.current &&
         event.code !== 4001 &&
@@ -137,16 +133,13 @@ export function useDebateSocket() {
         const delay = BASE_RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts.current);
         reconnectAttempts.current += 1;
         setConnectionStatus('reconnecting');
-        
         reconnectTimer.current = setTimeout(() => {
-          console.log(`Reconnect attempt ${reconnectAttempts.current}/${MAX_RECONNECT_ATTEMPTS} (delay: ${delay}ms)`);
           connect(lastSessionId.current, true);
         }, delay);
       }
     };
 
     ws.current.onerror = () => {
-      // onerror is always followed by onclose, so reconnect logic lives there
       setConnectionStatus('error');
     };
 
@@ -154,19 +147,17 @@ export function useDebateSocket() {
       const data = JSON.parse(e.data);
 
       if (data.type === 'connection_established') {
-        setCurrentTurn(data.current_turn);
-        if (data.scorecard) {
-          setScorecardData(data.scorecard);
-        }
+        setCurrentTurn(data.current_turn || 0);
+        if (data.panel_turn_count !== undefined) setPanelTurnCount(data.panel_turn_count);
+        if (data.deep_dive_counts) setDeepDiveCounts(data.deep_dive_counts);
+        if (data.scorecard) setScorecardData(data.scorecard);
         if (data.history && data.history.length > 0) {
-          // Reconstruct the persona state based on history
           setPersonas(prev => {
             const newPersonas = {
               investor: { ...prev.investor, status: 'done', chatHistory: [] },
               customer: { ...prev.customer, status: 'done', chatHistory: [] },
               competitor: { ...prev.competitor, status: 'done', chatHistory: [] },
             };
-            
             data.history.forEach(entry => {
               if (['investor', 'customer', 'competitor'].includes(entry.role)) {
                 newPersonas[entry.role].fullContent = entry.content;
@@ -176,42 +167,47 @@ export function useDebateSocket() {
             return newPersonas;
           });
         }
+
       } else if (data.type === 'turn_started') {
         setCurrentTurn(data.turn);
         setIsProcessing(true);
-        // Clear all cards content
         setPersonas(prev => ({
           investor: { ...prev.investor, content: '', status: 'waiting' },
           customer: { ...prev.customer, content: '', status: 'waiting' },
           competitor: { ...prev.competitor, content: '', status: 'waiting' },
         }));
+
       } else if (data.type === 'persona_start') {
         setPersonas(prev => ({
           ...prev,
           [data.persona]: { ...prev[data.persona], status: 'streaming' }
         }));
+
       } else if (data.type === 'persona_chunk') {
         setPersonas(prev => ({
           ...prev,
           [data.persona]: { ...prev[data.persona], content: prev[data.persona].content + data.content }
         }));
+
       } else if (data.type === 'persona_done') {
         setPersonas(prev => {
           const newChatHistory = [...prev[data.persona].chatHistory];
-          // If in deep dive mode, append the AI response
-          if (currentMode === 'deep_dive' && activePersona === data.persona) {
+          // In deep dive mode, append streaming content as new AI bubble
+          if (prev[data.persona].status === 'streaming' && newChatHistory.length > 0) {
             newChatHistory.push({ role: 'ai', content: data.full_content });
           }
           return {
             ...prev,
-            [data.persona]: { 
-              ...prev[data.persona], 
-              status: 'done', 
+            [data.persona]: {
+              ...prev[data.persona],
+              status: 'done',
               fullContent: data.full_content,
-              chatHistory: newChatHistory 
+              content: data.full_content,
+              chatHistory: newChatHistory,
             }
           };
         });
+
       } else if (data.type === 'persona_audio') {
         const binaryString = window.atob(data.audio_base64);
         const len = binaryString.length;
@@ -221,27 +217,34 @@ export function useDebateSocket() {
         const url = URL.createObjectURL(blob);
         audioQueue.current.push({ persona: data.persona, url });
         processAudioQueue();
+
       } else if (data.type === 'scorecard_generated') {
         setScorecardData(data.scorecard);
+
       } else if (data.type === 'turn_complete') {
         setIsProcessing(false);
+        if (data.current_turn !== undefined) setCurrentTurn(data.current_turn);
+        if (data.panel_turn_count !== undefined) setPanelTurnCount(data.panel_turn_count);
+        if (data.deep_dive_counts !== undefined) setDeepDiveCounts(data.deep_dive_counts);
+
       } else if (data.type === 'persona_error') {
         console.error(`Backend error for ${data.persona}:`, data.error);
         setPersonas(prev => ({
           ...prev,
-          [data.persona]: { 
-            ...prev[data.persona], 
-            status: 'error', 
-            content: prev[data.persona].content + "\n[System: An error occurred generating response.]" 
+          [data.persona]: {
+            ...prev[data.persona],
+            status: 'error',
+            content: prev[data.persona].content + "\n[System: An error occurred generating response.]"
           }
         }));
         setIsProcessing(false);
+
       } else if (data.type === 'error') {
         console.error("Backend error:", data.message);
         setIsProcessing(false);
       }
     };
-  }, [currentMode, activePersona, processAudioQueue]);
+  }, [processAudioQueue]);
 
   const disconnect = useCallback(() => {
     intentionalClose.current = true;
@@ -249,22 +252,16 @@ export function useDebateSocket() {
       clearTimeout(reconnectTimer.current);
       reconnectTimer.current = null;
     }
-    if (ws.current) {
-      ws.current.close();
-    }
+    if (ws.current) ws.current.close();
   }, []);
 
   const sendPitch = useCallback((content, target = 'all', mode = 'panel') => {
     if (ws.current?.readyState === WebSocket.OPEN && content.trim()) {
       setIsProcessing(true);
-      
+
       if (mode === 'deep_dive') {
         setPersonas(prev => {
           const newChatHistory = [...prev[target].chatHistory];
-          // Start a new chat history with context if empty
-          if (newChatHistory.length === 0 && prev[target].fullContent) {
-            newChatHistory.push({ role: 'ai', content: prev[target].fullContent });
-          }
           newChatHistory.push({ role: 'user', content });
           return {
             ...prev,
@@ -272,22 +269,32 @@ export function useDebateSocket() {
           };
         });
       }
-      
-      ws.current.send(JSON.stringify({
-        type: 'user_pitch',
-        content,
-        target,
-        mode
-      }));
+
+      ws.current.send(JSON.stringify({ type: 'user_pitch', content, target, mode }));
     }
+  }, []);
+
+  // Enter deep dive — immediately show the persona's latest response as first chat bubble
+  const initDeepDive = useCallback((personaKey) => {
+    setPersonas(prev => {
+      const persona = prev[personaKey];
+      if (persona.fullContent && persona.chatHistory.length === 0) {
+        return {
+          ...prev,
+          [personaKey]: {
+            ...persona,
+            chatHistory: [{ role: 'ai', content: persona.fullContent }]
+          }
+        };
+      }
+      return prev;
+    });
   }, []);
 
   const generateScorecard = useCallback(() => {
     if (ws.current?.readyState === WebSocket.OPEN) {
       setIsProcessing(true);
-      ws.current.send(JSON.stringify({
-        type: 'generate_scorecard'
-      }));
+      ws.current.send(JSON.stringify({ type: 'generate_scorecard' }));
     }
   }, []);
 
@@ -296,6 +303,8 @@ export function useDebateSocket() {
   return {
     connectionStatus,
     currentTurn,
+    panelTurnCount,
+    deepDiveCounts,
     isProcessing,
     scorecardData,
     personas,
@@ -306,8 +315,9 @@ export function useDebateSocket() {
     connect,
     disconnect,
     sendPitch,
+    initDeepDive,
     generateScorecard,
     isMuted,
-    toggleMute
+    toggleMute,
   };
 }

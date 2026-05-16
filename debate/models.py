@@ -26,6 +26,10 @@ class DebateSession(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='debates')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='waiting')
     current_turn = models.IntegerField(default=0)
+    # Counts only full-panel pitches (all 3 personas respond) — max 2
+    panel_turn_count = models.IntegerField(default=0)
+    # Per-persona deep dive usage: {'investor': 0, 'customer': 0, 'competitor': 0} — max 2 each
+    deep_dive_counts = models.JSONField(default=dict, blank=True)
     pitch_topic = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
