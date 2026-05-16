@@ -19,7 +19,8 @@ from django.urls import path, re_path
 from debate import views
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # Obscured admin URL — bots scan /admin/ by default
+    path('mgmt-console-7x9k/', admin.site.urls),
     path('api/csrf/', views.csrf_token, name='csrf_token'),
     path('api/login/', views.login_api, name='login_api'),
     path('api/register/', views.register_api, name='register_api'),

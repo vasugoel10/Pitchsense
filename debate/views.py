@@ -4,15 +4,20 @@ Phase 7: Hardened with CSRF protection, rate limiting, and server-side auth.
 """
 import json
 import time
+import logging
 import functools
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST, require_GET
 import os
+
+logger = logging.getLogger(__name__)
 
 from .models import DebateSession, GlobalTranscript
 
@@ -122,10 +127,11 @@ def login_api(request):
             'message': 'Invalid request body.'
         }, status=400)
     except Exception as e:
+        logger.error(f'Login error: {e}', exc_info=True)
         return JsonResponse({
             'status': 'error',
-            'message': str(e)
-        }, status=400)
+            'message': 'An unexpected error occurred.'
+        }, status=500)
 
 
 @require_POST
@@ -142,12 +148,15 @@ def register_api(request):
                 'message': 'Email and password are required.'
             }, status=400)
         
-        if len(password) < 6:
+        # Use Django's password validators (min 8 chars, not common, not all numeric)
+        try:
+            validate_password(password)
+        except ValidationError as e:
             return JsonResponse({
                 'status': 'error',
-                'message': 'Password must be at least 6 characters.'
+                'message': ' '.join(e.messages)
             }, status=400)
-        
+
         if User.objects.filter(username=username).exists():
             return JsonResponse({
                 'status': 'error',
@@ -171,10 +180,11 @@ def register_api(request):
             'message': 'Invalid request body.'
         }, status=400)
     except Exception as e:
+        logger.error(f'Registration error: {e}', exc_info=True)
         return JsonResponse({
             'status': 'error',
-            'message': str(e)
-        }, status=400)
+            'message': 'An unexpected error occurred.'
+        }, status=500)
 
 
 # ── Server-side Auth State ───────────────────────────────────────────────

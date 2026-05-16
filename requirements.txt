@@ -1,5 +1,5 @@
 # PitchSense — Python Dependencies
-# Generated from venv: pip install -r requirements.txt
+# Install: pip install -r requirements.txt
 
 # Django & ASGI
 Django==4.2.30
@@ -7,6 +7,14 @@ asgiref==3.11.1
 channels==4.3.2
 daphne==4.2.1
 whitenoise==6.9.0
+
+# Production database & channel layer
+dj-database-url==2.3.0
+psycopg2-binary==2.9.10
+channels-redis==4.2.1
+
+# Error monitoring (optional — enable via SENTRY_DSN env var)
+sentry-sdk==2.22.0
 
 # WebSocket / Channels transport
 Twisted==25.5.0

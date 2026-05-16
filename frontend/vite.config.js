@@ -18,7 +18,7 @@ export default defineConfig({
     proxy: {
       // HTTP API calls → Django on :8000
       '/api': { target: 'http://localhost:8000', changeOrigin: true },
-      '/admin': { target: 'http://localhost:8000', changeOrigin: true },
+      '/mgmt-console-7x9k': { target: 'http://localhost:8000', changeOrigin: true },
       // WebSocket connections → Django Channels on :8000
       '/ws': { target: 'ws://localhost:8000', ws: true, changeOrigin: true },
     }

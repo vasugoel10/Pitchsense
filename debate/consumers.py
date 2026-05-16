@@ -5,8 +5,15 @@ Turn rules:
 - Panel pitches (all 3 respond): max 2 per session
 - Deep dive (1 persona, private): max 2 per persona per session
 - Total turn counter: max 5 before scorecard generates
+
+Production hardening:
+- Per-connection rate limiting (1 pitch per 3 seconds)
+- Parallel persona streaming via asyncio.gather
+- Input validation and sanitization
+- Structured error logging
 """
 import json
+import time
 import uuid
 import logging
 import asyncio
@@ -24,6 +31,10 @@ MAX_PANEL_TURNS = 2     # how many times user can pitch to the full panel
 MAX_DEEP_DIVES = 2      # how many follow-up questions per persona in deep dive
 MAX_TOTAL_TURNS = 5     # scorecard fires after this many total turns
 
+# Rate limiting
+PITCH_COOLDOWN_SECONDS = 3      # min gap between pitches per connection
+MAX_MESSAGES_PER_MINUTE = 20    # max WebSocket messages per connection per minute
+
 
 class DebateConsumer(AsyncWebsocketConsumer):
 
@@ -34,6 +45,11 @@ class DebateConsumer(AsyncWebsocketConsumer):
             return
 
         self.session_id = self.scope['url_route']['kwargs']['session_id']
+
+        # Initialize rate limiting state
+        self._last_pitch_time = 0
+        self._message_timestamps = []
+
         self.debate_session = await self._get_or_create_session(user)
 
         if self.debate_session.user and self.debate_session.user.id != user.id and not user.is_superuser:
@@ -78,7 +94,29 @@ class DebateConsumer(AsyncWebsocketConsumer):
         }))
 
     async def receive(self, text_data):
-        data = json.loads(text_data)
+        # ── Global message rate limit ─────────────────────────────────
+        now = time.time()
+        self._message_timestamps = [
+            t for t in self._message_timestamps if now - t < 60
+        ]
+        if len(self._message_timestamps) >= MAX_MESSAGES_PER_MINUTE:
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Too many messages. Please slow down.',
+            }))
+            return
+        self._message_timestamps.append(now)
+
+        # ── Parse ─────────────────────────────────────────────────────
+        try:
+            data = json.loads(text_data)
+        except json.JSONDecodeError:
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Invalid JSON payload.',
+            }))
+            return
+
         message_type = data.get('type', 'unknown')
 
         if message_type == 'user_pitch':
@@ -119,19 +157,42 @@ class DebateConsumer(AsyncWebsocketConsumer):
             await self.send(text_data=json.dumps({'type': 'error', 'message': 'Empty pitch content.'}))
             return
 
+        # Input sanitization
         if len(content) > 2000:
             content = content[:2000]
 
+        # ── Per-pitch rate limit ──────────────────────────────────────
+        now = time.time()
+        elapsed = now - self._last_pitch_time
+        if elapsed < PITCH_COOLDOWN_SECONDS:
+            wait = round(PITCH_COOLDOWN_SECONDS - elapsed, 1)
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': f'Please wait {wait}s between pitches.',
+            }))
+            return
+        self._last_pitch_time = now
+
         target_persona = data.get('target', 'all')
         mode = data.get('mode', 'panel')
+
+        # Validate target_persona is a known persona key
+        if mode == 'deep_dive' and target_persona not in PERSONAS:
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': f'Unknown persona: {target_persona}',
+            }))
+            return
 
         session = await self._refresh_session()
         deep_dive_counts = session.deep_dive_counts or {}
 
         # ── Validate limits ───────────────────────────────────────────
+        is_admin = user.is_superuser
+
         if mode == 'deep_dive' and target_persona in PERSONAS:
             # Deep dive: max 2 questions per persona
-            if not user.is_superuser and deep_dive_counts.get(target_persona, 0) >= MAX_DEEP_DIVES:
+            if not is_admin and deep_dive_counts.get(target_persona, 0) >= MAX_DEEP_DIVES:
                 await self.send(text_data=json.dumps({
                     'type': 'error',
                     'message': f'You\'ve used your {MAX_DEEP_DIVES} deep dive questions with this persona.',
@@ -146,7 +207,7 @@ class DebateConsumer(AsyncWebsocketConsumer):
         else:
             # Panel mode: all 3 respond, max 2 panel pitches
             mode = 'panel'
-            if not user.is_superuser and session.panel_turn_count >= MAX_PANEL_TURNS:
+            if not is_admin and session.panel_turn_count >= MAX_PANEL_TURNS:
                 await self.send(text_data=json.dumps({
                     'type': 'error',
                     'message': f'You\'ve used both your panel pitch turns.',
@@ -158,8 +219,9 @@ class DebateConsumer(AsyncWebsocketConsumer):
             target_persona = 'all'
 
         # ── Check overall 5-turn cap ──────────────────────────────────
-        if not user.is_superuser and session.current_turn >= MAX_TOTAL_TURNS:
-            # Already at limit — just fire the scorecard if not done yet
+        # Admin gets higher limit but not unlimited
+        turn_limit = MAX_TOTAL_TURNS * 4 if is_admin else MAX_TOTAL_TURNS
+        if session.current_turn >= turn_limit:
             if session.status != 'completed':
                 await self._generate_and_send_scorecard()
             return
@@ -177,19 +239,22 @@ class DebateConsumer(AsyncWebsocketConsumer):
             'user_content': transcript_content,
         }))
 
-        # ── Fire personas ─────────────────────────────────────────────
-        tavily_task = asyncio.create_task(get_competitor_context(content))
+        # ── Fire personas in parallel ─────────────────────────────────
+        tavily_context = await get_competitor_context(content)
 
-        for persona_key in personas_to_fire:
-            tavily_context = None
-            if persona_key == 'competitor':
-                tavily_context = await tavily_task
-            await self._stream_persona(persona_key, turn, tavily_context=tavily_context, mode=mode)
+        async def fire_persona(pk):
+            ctx = tavily_context if pk == 'competitor' else None
+            await self._stream_persona(pk, turn, tavily_context=ctx, mode=mode)
+
+        await asyncio.gather(
+            *[fire_persona(pk) for pk in personas_to_fire],
+            return_exceptions=True,
+        )
 
         # ── Check if we've hit the total turn cap ─────────────────────
         session = await self._refresh_session()
         is_final = False
-        if not user.is_superuser and session.current_turn >= MAX_TOTAL_TURNS:
+        if not is_admin and session.current_turn >= MAX_TOTAL_TURNS:
             is_final = True
             await self._generate_and_send_scorecard()
 
@@ -263,7 +328,7 @@ class DebateConsumer(AsyncWebsocketConsumer):
                 'type': 'persona_error',
                 'persona': persona_key,
                 'turn': turn,
-                'error': str(e),
+                'error': 'An error occurred while generating the response.',
             }))
 
     async def _synthesize_and_send_audio(self, persona_key, turn, text, voice):
