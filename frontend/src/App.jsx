@@ -64,52 +64,53 @@ function Arena() {
   };
 
   return (
-    <div className="h-screen w-full flex flex-col bg-[var(--bg-primary)] overflow-hidden font-sans text-[var(--text-primary)]">
+    <div className="h-screen w-full flex flex-col overflow-hidden font-sans" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
       {/* Header */}
-      <header className="flex-none h-16 border-b border-[var(--border-default)] bg-[#0a0a0f]/80 backdrop-blur-md flex items-center px-6 sticky top-0 z-20">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.4)]">
-            <span className="text-white text-lg font-black leading-none pb-0.5">P</span>
+      <header className="flex-none h-14 flex items-center px-5 sticky top-0 z-20"
+        style={{ background: 'rgba(7,7,15,0.9)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-lg"
+            style={{ background: 'linear-gradient(135deg, #6366f1, #7c3aed)', boxShadow: '0 0 16px rgba(99,102,241,0.4)' }}>
+            <span className="text-white text-sm font-black leading-none">P</span>
           </div>
-          <h1 className="text-xl font-bold tracking-tight">Pitch<span className="text-indigo-400 font-extrabold">Sense</span></h1>
+          <h1 className="text-base font-bold tracking-tight text-white">
+            Pitch<span className="text-indigo-400 font-extrabold">Sense</span>
+          </h1>
           {role === 'admin' && (
-            <span className="ml-2 text-[10px] uppercase font-black tracking-widest bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30">Admin Mode</span>
+            <span className="text-[9px] uppercase font-black tracking-widest px-2 py-0.5 rounded"
+              style={{ background: 'rgba(244,63,94,0.15)', color: '#f87171', border: '1px solid rgba(244,63,94,0.25)' }}>
+              Admin
+            </span>
           )}
         </div>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2">
           {role === 'admin' && (
-            <button
-              onClick={() => navigate('/admin-dashboard')}
-              className="text-xs font-bold px-3 py-1.5 rounded-lg bg-[#2d2d3d] hover:bg-[#3d3d4d] text-white transition-colors"
-            >
+            <button onClick={() => navigate('/admin-dashboard')}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all text-gray-300 hover:text-white"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
               Dashboard
             </button>
           )}
           <button
-            onClick={() => {
-              sessionStorage.removeItem('pitchsense_session_id');
-              connect(crypto.randomUUID());
-            }}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
-          >
+            onClick={() => { sessionStorage.removeItem('pitchsense_session_id'); connect(crypto.randomUUID()); }}
+            className="text-xs font-bold px-3 py-1.5 rounded-lg text-white transition-all"
+            style={{ background: 'linear-gradient(135deg, #6366f1, #7c3aed)', boxShadow: '0 0 12px rgba(99,102,241,0.25)' }}>
             + New Pitch
           </button>
-          <button
-            onClick={handleLogout}
-            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-red-600/10 hover:bg-red-600/20 text-red-400 border border-red-500/20 transition-colors flex items-center gap-1.5"
-            title="Log out"
-          >
-            <LogOut size={14} />
+          <button onClick={handleLogout}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+            style={{ background: 'rgba(244,63,94,0.08)', color: '#f87171', border: '1px solid rgba(244,63,94,0.2)' }}>
             Logout
           </button>
-          <span className={`text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1.5 ml-1
-            ${connectionStatus === 'connected' ? 'text-emerald-400 bg-emerald-400/10' : 
-              connectionStatus === 'error' ? 'text-red-400 bg-red-400/10' : 'text-amber-400 bg-amber-400/10'}`}>
-            <span className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-emerald-400' : connectionStatus === 'error' ? 'bg-red-400' : 'bg-amber-400'} animate-pulse`}></span>
-            {connectionStatus.toUpperCase()}
-          </span>
+          <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full
+            ${connectionStatus === 'connected' ? 'text-emerald-400' : connectionStatus === 'error' ? 'text-red-400' : 'text-amber-400'}`}
+            style={{ background: connectionStatus === 'connected' ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)' }}>
+            <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${connectionStatus === 'connected' ? 'bg-emerald-400' : connectionStatus === 'error' ? 'bg-red-400' : 'bg-amber-400'}`} />
+            {connectionStatus === 'connected' ? 'Live' : connectionStatus.toUpperCase()}
+          </div>
         </div>
       </header>
+
 
       {/* Main Arena */}
       <DebateArena />

@@ -1,96 +1,171 @@
 import { useState, useEffect } from 'react';
 import { useDebate } from '../context/DebateContext';
 
+const VERDICT_CONFIG = {
+  PROCEED: {
+    label: 'PROCEED',
+    icon: '🚀',
+    color: '#10b981',
+    bg: 'rgba(16,185,129,0.12)',
+    border: 'rgba(16,185,129,0.3)',
+    glow: '0 0 40px rgba(16,185,129,0.3)',
+    tagline: "You've got something real. Don't stop now.",
+  },
+  PIVOT: {
+    label: 'PIVOT',
+    icon: '🔄',
+    color: '#f59e0b',
+    bg: 'rgba(245,158,11,0.12)',
+    border: 'rgba(245,158,11,0.3)',
+    glow: '0 0 40px rgba(245,158,11,0.3)',
+    tagline: "The idea has merit — the execution needs rethinking.",
+  },
+  KILL: {
+    label: 'KILL IT',
+    icon: '☠️',
+    color: '#f43f5e',
+    bg: 'rgba(244,63,94,0.12)',
+    border: 'rgba(244,63,94,0.3)',
+    glow: '0 0 40px rgba(244,63,94,0.3)',
+    tagline: "Cut your losses. Find a better problem to solve.",
+  },
+};
+
+function ScoreBar({ label, score, color, delay = 0 }) {
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const t = setTimeout(() => setWidth(score * 10), delay);
+    return () => clearTimeout(t);
+  }, [score, delay]);
+
+  const getColor = (s) => {
+    if (s >= 7) return '#10b981';
+    if (s >= 4) return '#f59e0b';
+    return '#f43f5e';
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">{label}</span>
+        <span className="text-sm font-bold tabular-nums" style={{ color: getColor(score) }}>{score}/10</span>
+      </div>
+      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-700 ease-out"
+          style={{
+            width: `${width}%`,
+            background: `linear-gradient(90deg, ${getColor(score)}88, ${getColor(score)})`,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function ScorecardOverlay() {
   const { scorecardData, connect } = useDebate();
   const [isOpen, setIsOpen] = useState(false);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     if (scorecardData) {
       setIsOpen(true);
+      setTimeout(() => setVisible(true), 50);
     }
   }, [scorecardData]);
 
   if (!scorecardData || !isOpen) return null;
 
-  const getVerdictStyle = (v) => {
-    switch (v) {
-      case 'PROCEED': return 'bg-emerald-500 shadow-[0_0_40px_rgba(16,185,129,0.4)] text-white border-emerald-400';
-      case 'PIVOT': return 'bg-amber-500 shadow-[0_0_40px_rgba(245,158,11,0.4)] text-white border-amber-400';
-      case 'KILL': return 'bg-red-500 shadow-[0_0_40px_rgba(239,68,68,0.4)] text-white border-red-400';
-      default: return 'bg-gray-600 text-white';
-    }
-  };
+  const verdict = VERDICT_CONFIG[scorecardData.verdict] || VERDICT_CONFIG['PIVOT'];
 
-  const getVerdictIcon = (v) => {
-    switch (v) {
-      case 'PROCEED': return '🚀';
-      case 'PIVOT': return '🔄';
-      case 'KILL': return '☠️';
-      default: return '📊';
-    }
+  const handleNewPitch = () => {
+    sessionStorage.removeItem('pitchsense_session_id');
+    connect(crypto.randomUUID());
+    setIsOpen(false);
+    setVisible(false);
   };
-
-  const BarInfo = ({ label, score }) => (
-    <div className="mb-4">
-      <div className="flex justify-between mb-1.5">
-        <span className="text-sm font-semibold text-gray-300">{label}</span>
-        <span className="text-sm font-bold text-white">{score}/10</span>
-      </div>
-      <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden">
-        <div 
-          className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-1000 ease-out" 
-          style={{ width: `${score * 10}%` }}
-        />
-      </div>
-    </div>
-  );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-xl bg-black/60 animate-in fade-in duration-500">
-      <div className="w-full max-w-lg rounded-2xl bg-[#111118] border border-[#2d2d3d] p-8 shadow-2xl relative overflow-hidden flex flex-col gap-6 animate-in zoom-in-95 duration-500">
-        
-        {/* Background glow top right */}
-        <div className="absolute -top-20 -right-20 w-48 h-48 bg-indigo-500/20 blur-3xl rounded-full pointer-events-none" />
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-500
+      ${visible ? 'bg-black/75 backdrop-blur-xl' : 'bg-transparent backdrop-blur-none'}`}>
 
-        <button 
-          onClick={() => setIsOpen(false)}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors z-20 p-2"
-          title="Close scorecard and return to debate"
+      <div className={`w-full max-w-lg relative transition-all duration-500 ${visible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'}`}>
+
+        {/* Card */}
+        <div
+          className="rounded-3xl p-8 relative overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, #0e0e1a 0%, #111126 100%)',
+            border: `1px solid ${verdict.border}`,
+            boxShadow: `${verdict.glow}, 0 25px 50px rgba(0,0,0,0.5)`,
+          }}
         >
-          ✕
-        </button>
+          {/* Background glow blob */}
+          <div
+            className="absolute -top-24 -right-24 w-64 h-64 rounded-full blur-3xl pointer-events-none"
+            style={{ background: verdict.bg }}
+          />
+          <div
+            className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full blur-3xl pointer-events-none opacity-50"
+            style={{ background: verdict.bg }}
+          />
 
-        <div className="text-center relative z-10">
-          <h2 className="text-3xl font-extrabold text-white mb-2">Final Verdict</h2>
-          <p className="text-sm text-gray-400">The panel has reached a consensus.</p>
-        </div>
+          {/* Close button */}
+          <button
+            onClick={() => { setIsOpen(false); setVisible(false); }}
+            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all z-20 text-lg"
+          >
+            ×
+          </button>
 
-        <div className="flex flex-col items-center gap-3 relative z-10 my-4">
-          <div className="text-5xl drop-shadow-xl">{getVerdictIcon(scorecardData.verdict)}</div>
-          <div className={`px-6 py-2 rounded-full border-2 text-2xl font-black tracking-widest ${getVerdictStyle(scorecardData.verdict)}`}>
-            {scorecardData.verdict}
+          <div className="relative z-10 flex flex-col gap-6">
+
+            {/* Header */}
+            <div className="text-center">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--text-muted)] mb-3">Final Verdict</p>
+              <div className="flex flex-col items-center gap-3">
+                <div className="text-5xl animate-float">{verdict.icon}</div>
+                <div
+                  className="px-8 py-2.5 rounded-2xl text-2xl font-black tracking-widest"
+                  style={{ background: verdict.bg, border: `2px solid ${verdict.border}`, color: verdict.color, boxShadow: verdict.glow }}
+                >
+                  {verdict.label}
+                </div>
+                <p className="text-sm text-[var(--text-muted)] italic">{verdict.tagline}</p>
+              </div>
+            </div>
+
+            {/* Feedback */}
+            <div
+              className="rounded-xl px-4 py-3.5 text-sm leading-relaxed text-[var(--text-secondary)]"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+            >
+              {scorecardData.feedback}
+            </div>
+
+            {/* Score grid */}
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+              <ScoreBar label="Overall" score={scorecardData.overall_score} delay={100} />
+              <ScoreBar label="Market" score={scorecardData.market} delay={200} />
+              <ScoreBar label="Moat" score={scorecardData.moat} delay={300} />
+              <ScoreBar label="Feasibility" score={scorecardData.feasibility} delay={400} />
+            </div>
+
+            {/* CTA */}
+            <button
+              onClick={handleNewPitch}
+              className="w-full py-4 rounded-2xl font-bold text-sm tracking-wide transition-all relative overflow-hidden group"
+              style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc' }}
+            >
+              <div className="absolute inset-0 bg-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                🔁 Start a New Pitch
+              </span>
+            </button>
           </div>
         </div>
-
-        <div className="bg-black/30 p-5 rounded-xl text-sm leading-relaxed text-gray-200 border border-white/5 relative z-10 whitespace-pre-wrap flex-1 overflow-y-auto max-h-40 custom-scrollbar">
-          {scorecardData.feedback}
-        </div>
-
-        <div className="relative z-10 mt-2">
-          <BarInfo label="Overall Score" score={scorecardData.overall_score} />
-        </div>
-
-        <button 
-          onClick={() => {
-            sessionStorage.removeItem('pitchsense_session_id');
-            connect(crypto.randomUUID());
-            setIsOpen(false);
-          }}
-          className="w-full py-4 mt-2 bg-[#2d2d3d] hover:bg-[#3d3d4d] text-white rounded-xl font-bold tracking-wide transition-colors relative z-10 shadow-lg"
-        >
-          Start New Pitch
-        </button>
       </div>
     </div>
   );
