@@ -9,6 +9,7 @@ and forwards each chunk instantly via WebSocket.
 """
 import logging
 import json
+# pyrefly: ignore [missing-import]
 from groq import AsyncGroq
 from django.conf import settings
 from debate.personas import PERSONAS, build_messages
@@ -41,10 +42,13 @@ async def stream_persona_response(persona_key, transcript_entries,
         ValueError: If persona_key is invalid
     """
     if not settings.GROQ_API_KEY:
-        raise ValueError(
-            "GROQ_API_KEY is not set. Add it to your environment variables "
-            "or .env file. Get a key at https://console.groq.com/"
-        )
+        import asyncio
+        yield f"[Mock] I am the {persona_key} persona responding because no GROQ_API_KEY is set. "
+        await asyncio.sleep(0.5)
+        yield "This is a streaming response to simulate the AI. "
+        await asyncio.sleep(0.5)
+        yield "In production, please add your GROQ_API_KEY to the environment."
+        return
 
     if persona_key not in PERSONAS:
         raise ValueError(f"Unknown persona: {persona_key}. Must be one of {list(PERSONAS.keys())}")

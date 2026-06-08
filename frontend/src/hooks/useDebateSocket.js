@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 const BASE_RECONNECT_DELAY_MS = 1000;
+const HEARTBEAT_INTERVAL_MS = 30000;  // Send ping every 30s to keep connection alive
 
 export function useDebateSocket() {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
@@ -27,6 +28,7 @@ export function useDebateSocket() {
 
   const reconnectAttempts = useRef(0);
   const reconnectTimer = useRef(null);
+  const heartbeatTimer = useRef(null);
   const lastSessionId = useRef(null);
   const intentionalClose = useRef(false);
 
@@ -120,17 +122,33 @@ export function useDebateSocket() {
     ws.current.onopen = () => {
       setConnectionStatus('connected');
       reconnectAttempts.current = 0;
+
+      // Start heartbeat to keep connection alive through proxies/load balancers
+      if (heartbeatTimer.current) clearInterval(heartbeatTimer.current);
+      heartbeatTimer.current = setInterval(() => {
+        if (ws.current?.readyState === WebSocket.OPEN) {
+          ws.current.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, HEARTBEAT_INTERVAL_MS);
     };
 
     ws.current.onclose = (event) => {
       setConnectionStatus('disconnected');
+      if (heartbeatTimer.current) {
+        clearInterval(heartbeatTimer.current);
+        heartbeatTimer.current = null;
+      }
       if (
         !intentionalClose.current &&
-        event.code !== 4001 &&
-        event.code !== 4003 &&
+        event.code !== 4001 &&  // Not authenticated
+        event.code !== 4002 &&  // Session belongs to another user
+        event.code !== 4003 &&  // Pitch limit exceeded
         reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS
       ) {
-        const delay = BASE_RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts.current);
+        // Exponential backoff with jitter to prevent thundering herd
+        const baseDelay = BASE_RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts.current);
+        const jitter = Math.random() * baseDelay * 0.3;
+        const delay = baseDelay + jitter;
         reconnectAttempts.current += 1;
         setConnectionStatus('reconnecting');
         reconnectTimer.current = setTimeout(() => {
@@ -251,6 +269,10 @@ export function useDebateSocket() {
     if (reconnectTimer.current) {
       clearTimeout(reconnectTimer.current);
       reconnectTimer.current = null;
+    }
+    if (heartbeatTimer.current) {
+      clearInterval(heartbeatTimer.current);
+      heartbeatTimer.current = null;
     }
     if (ws.current) ws.current.close();
   }, []);

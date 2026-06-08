@@ -1,0 +1,224 @@
+﻿
+C:\Users\hp\Desktop\Pitchsense\frontend\build\index-Bovb4ljV.js
+   1:5275    error  'process' is not defined                                                   no-undef
+   1:5301    error  'process' is not defined                                                   no-undef
+   1:9651    error  'setImmediate' is not defined                                              no-undef
+   1:10487   error  Unreachable code                                                           no-unreachable
+   1:15561   error  '__REACT_DEVTOOLS_GLOBAL_HOOK__' is not defined                            no-undef
+   1:15618   error  '__REACT_DEVTOOLS_GLOBAL_HOOK__' is not defined                            no-undef
+   1:18924   error  Empty block statement                                                      no-empty
+   6:202     error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:548     error  Empty block statement                                                      no-empty
+   8:4218    error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:4318    error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:4401    error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:5219    error  Unexpected combined character in character class                           no-misleading-character-class
+   8:6369    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   8:8589    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   8:10698   error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   8:10728   error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   8:10847   error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   8:10908   error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   8:13871   error  Unexpected control character(s) in regular expression: \x00, \x1f          no-control-regex
+   8:15902   error  Expected to return a value in method 'get'                                 getter-return
+   8:16592   error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   8:16934   error  Invalid typeof comparison value                                            valid-typeof
+   8:17108   error  Invalid typeof comparison value                                            valid-typeof
+   8:18943   error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:25201   error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   8:26504   error  'process' is not defined                                                   no-undef
+   8:26530   error  'process' is not defined                                                   no-undef
+   8:45278   error  Expected a 'break' statement before 'case'                                 no-fallthrough
+   8:45737   error  Unexpected constant condition                                              no-constant-condition
+   8:58541   error  Empty block statement                                                      no-empty
+   8:64004   error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:68865   error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:71731   error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:72832   error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:74506   error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:81101   error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:86051   error  Unnecessary escape character: \/                                           no-useless-escape
+   8:96705   error  Expected a 'break' statement before 'case'                                 no-fallthrough
+   8:97656   error  Empty block statement                                                      no-empty
+   8:97932   error  Expected a 'break' statement before 'case'                                 no-fallthrough
+   8:101102  error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:103469  error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   8:105263  error  Expected a 'break' statement before 'case'                                 no-fallthrough
+   8:105932  error  Expected a 'break' statement before 'case'                                 no-fallthrough
+   8:111655  error  Expected a 'break' statement before 'case'                                 no-fallthrough
+   8:111989  error  Unexpected constant condition                                              no-constant-condition
+   8:114536  error  Unexpected constant condition                                              no-constant-condition
+   8:115134  error  Expected a 'break' statement before 'case'                                 no-fallthrough
+   8:115445  error  Unexpected constant condition                                              no-constant-condition
+   8:115834  error  Expected a 'break' statement before 'default'                              no-fallthrough
+   8:118239  error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:119027  error  Empty block statement                                                      no-empty
+   8:119752  error  Empty block statement                                                      no-empty
+   8:123588  error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:127332  error  Expected a 'break' statement before 'case'                                 no-fallthrough
+   8:127519  error  Expected a 'break' statement before 'case'                                 no-fallthrough
+   8:128727  error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:129804  error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   8:130207  error  Expected a 'break' statement before 'case'                                 no-fallthrough
+   8:131721  error  Unexpected control character(s) in regular expression: \x00                no-control-regex
+   9:475     error  Expected a 'break' statement before 'case'                                 no-fallthrough
+   9:5064    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:5634    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:5969    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:6362    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:6478    error  Expected a 'break' statement before 'default'                              no-fallthrough
+   9:6638    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:6900    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:7382    error  Expected a 'break' statement before 'case'                                 no-fallthrough
+   9:7521    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:7698    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:7780    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:8040    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:8138    error  Expected a 'break' statement before 'default'                              no-fallthrough
+   9:8148    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:8225    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:8612    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:8686    error  Expected a 'break' statement before 'default'                              no-fallthrough
+   9:8696    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:8763    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:8881    error  Expected a 'break' statement before 'default'                              no-fallthrough
+   9:9056    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:9087    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:9210    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:9483    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:9514    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:9633    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:9987    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:10018   error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:10085   error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:10296   error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:10330   error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:10398   error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:10496   error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:10527   error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:10592   error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+   9:18622   error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   9:19690   error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   9:22218   error  Expected a conditional expression and instead saw an assignment            no-cond-assign
+   9:35774   error  '__REACT_DEVTOOLS_GLOBAL_HOOK__' is not defined                            no-undef
+   9:35873   error  Empty block statement                                                      no-empty
+   9:36376   error  '__REACT_DEVTOOLS_GLOBAL_HOOK__' is not defined                            no-undef
+   9:36433   error  '__REACT_DEVTOOLS_GLOBAL_HOOK__' is not defined                            no-undef
+   9:38331   error  Empty block statement                                                      no-empty
+   9:48526   error  Empty block statement                                                      no-empty
+   9:48743   error  Empty block statement                                                      no-empty
+  11:5041    error  Do not access Object.prototype method 'hasOwnProperty' from target object  no-prototype-builtins
+  11:7938    error  'e' is defined but never used                                              no-unused-vars
+  11:18207   error  Empty block statement                                                      no-empty
+  11:25668   error  Empty block statement                                                      no-empty
+  20:531     error  'e' is defined but never used                                              no-unused-vars
+  21:4087    error  'n' is defined but never used                                              no-unused-vars
+
+C:\Users\hp\Desktop\Pitchsense\frontend\src\components\DebateArena.jsx
+  60:23  error  'isFuture' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\hp\Desktop\Pitchsense\frontend\src\components\ScorecardOverlay.jsx
+  34:35  error  'color' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      no-unused-vars
+  74:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  72 |   useEffect(() => {
+  73 |     if (scorecardData) {
+> 74 |       setIsOpen(true);
+     |       ^^^^^^^^^ Avoid calling setState() directly within an effect
+  75 |       setTimeout(() => setVisible(true), 50);
+  76 |     }
+  77 |   }, [scorecardData]);  react-hooks/set-state-in-effect
+
+C:\Users\hp\Desktop\Pitchsense\frontend\src\components\VoiceInput.jsx
+   5:38  error  'activeMicTarget' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   no-unused-vars
+  32:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  30 |       };
+  31 |       
+> 32 |       setRecognition(rec);
+     |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  33 |     }
+  34 |   }, [onSend]);
+  35 |  react-hooks/set-state-in-effect
+
+C:\Users\hp\Desktop\Pitchsense\frontend\src\context\DebateContext.jsx
+  16:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\hp\Desktop\Pitchsense\frontend\src\hooks\useDebateSocket.js
+   46:7   error  Error: Cannot access variable before it is declared
+
+`processAudioQueue` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  44 |       currentAudioElement.current = null;
+  45 |       URL.revokeObjectURL(currentAudio.url);
+> 46 |       processAudioQueue();
+     |       ^^^^^^^^^^^^^^^^^ `processAudioQueue` accessed before it is declared
+  47 |     };
+  48 |
+  49 |     audio.onerror = () => {
+
+  31 |   const intentionalClose = useRef(false);
+  32 |
+> 33 |   const processAudioQueue = useCallback(() => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 34 |     if (isPlayingAudio.current || audioQueue.current.length === 0 || isMuted) return;
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 35 |
+     ΓÇª
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 61 |     });
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 62 |   }, [isMuted]);
+     | ^^^^^^^^^^^^^^^^^ `processAudioQueue` is declared here
+  63 |
+  64 |   useEffect(() => {
+  65 |     if (isMuted) {  react-hooks/immutability
+  137:11  error  Error: Cannot access variable before it is declared
+
+`connect` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  135 |         setConnectionStatus('reconnecting');
+  136 |         reconnectTimer.current = setTimeout(() => {
+> 137 |           connect(lastSessionId.current, true);
+      |           ^^^^^^^ `connect` accessed before it is declared
+  138 |         }, delay);
+  139 |       }
+  140 |     };
+
+   76 |   }, [isMuted, processAudioQueue]);
+   77 |
+>  78 |   const connect = useCallback((sessionId = null, isReconnect = false) => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  79 |     let activeSessionId = sessionId;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  80 |     if (!activeSessionId) {
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 246 |     };
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 247 |   }, [processAudioQueue]);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^ `connect` is declared here
+  248 |
+  249 |   const disconnect = useCallback(() => {
+  250 |     intentionalClose.current = true;                                               react-hooks/immutability
+
+C:\Users\hp\Desktop\Pitchsense\frontend\src\pages\AdminDashboard.jsx
+  43:6  warning  React Hook useEffect has missing dependencies: 'fetchSessions' and 'navigate'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\hp\Desktop\Pitchsense\frontend\src\pages\LoginPage.jsx
+  41:14  error  'err' is defined but never used  no-unused-vars
+
+Γ£û 123 problems (122 errors, 1 warning)
+

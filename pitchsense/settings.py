@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'channels',
+    'rest_framework',
     'debate',
 ]
 
@@ -120,6 +121,38 @@ else:
             'BACKEND': 'channels.layers.InMemoryChannelLayer',
         },
     }
+
+
+# ── Cache ────────────────────────────────────────────────────────────────
+# Redis in production (reuses REDIS_URL), LocMem for local dev.
+# Used by: rate limiter, auth check caching, Tavily research caching.
+
+if _redis_url:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': _redis_url,
+            'TIMEOUT': 300,  # 5 minute default TTL
+            'KEY_PREFIX': 'pitchsense',
+            'OPTIONS': {
+                'db': 1,  # Use DB 1 to avoid collision with channel layer on DB 0
+            },
+        },
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'pitchsense-dev-cache',
+        },
+    }
+
+
+# ── Session Engine ───────────────────────────────────────────────────────
+# cached_db: checks cache first, falls back to DB. Eliminates a DB query
+# on every /api/auth-check/ call when cache is warm.
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 
 
 # ── Database ─────────────────────────────────────────────────────────────
@@ -218,20 +251,32 @@ if not DEBUG:
 
 
 # ── Sentry Error Tracking ───────────────────────────────────────────────
-# Set SENTRY_DSN env var to enable. Free tier: sentry.io
+# REQUIRED in production. Set SENTRY_DSN env var. Free tier: sentry.io
 
 _sentry_dsn = os.environ.get('SENTRY_DSN')
-if _sentry_dsn and not DEBUG:
-    try:
-        import sentry_sdk
-        sentry_sdk.init(
-            dsn=_sentry_dsn,
-            traces_sample_rate=0.1,
-            profiles_sample_rate=0.1,
-            send_default_pii=False,
+if not DEBUG:
+    if not _sentry_dsn:
+        import warnings
+        warnings.warn(
+            'SENTRY_DSN is not set. Error tracking is DISABLED in production. '
+            'Set SENTRY_DSN to enable. Get a free DSN at https://sentry.io',
+            RuntimeWarning,
+            stacklevel=1,
         )
-    except ImportError:
-        pass  # sentry-sdk not installed, skip silently
+    else:
+        try:
+            import sentry_sdk
+            sentry_sdk.init(
+                dsn=_sentry_dsn,
+                traces_sample_rate=0.1,
+                profiles_sample_rate=0.1,
+                send_default_pii=False,
+            )
+        except ImportError:
+            raise ImportError(
+                'sentry-sdk is listed in requirements.txt but could not be imported. '
+                'Run: pip install sentry-sdk'
+            )
 
 
 # ── Logging ──────────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import json
 import time
 import logging
 import functools
+import hashlib
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 from django.conf import settings
@@ -15,6 +16,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST, require_GET
+from django.core.cache import cache
 import os
 
 logger = logging.getLogger(__name__)
@@ -22,35 +24,47 @@ logger = logging.getLogger(__name__)
 from .models import DebateSession, GlobalTranscript
 
 
-# ── Rate Limiting (in-memory, per-IP) ────────────────────────────────────
-# Simple rate limiter that doesn't require external dependencies.
-# For production, swap with django-ratelimit + Redis.
-
-_rate_limit_store = {}  # { ip: [timestamp, timestamp, ...] }
+# ── Rate Limiting (cache-backed, per-IP) ─────────────────────────────────
+# Uses Django's cache framework (Redis in prod, LocMem in dev).
+# Survives process restarts and works across multiple Daphne workers.
 
 def rate_limit(max_requests=5, window_seconds=60):
-    """Decorator: limit requests per IP to max_requests within window_seconds."""
+    """Decorator: limit requests per IP to max_requests within window_seconds.
+    
+    Uses a sliding window log stored in the cache backend. Each IP gets a
+    cache key containing a list of request timestamps. Expired timestamps
+    are pruned on each request.
+
+    Fails OPEN on cache failure: if Redis is down, requests pass through
+    rather than blocking all users. This trades rate-limit enforcement
+    for availability during outages.
+    """
     def decorator(view_func):
         @functools.wraps(view_func)
         def wrapper(request, *args, **kwargs):
             ip = _get_client_ip(request)
+            cache_key = f'rl:{view_func.__name__}:{ip}'
             now = time.time()
-            
-            # Clean old entries
-            if ip in _rate_limit_store:
-                _rate_limit_store[ip] = [
-                    t for t in _rate_limit_store[ip] if now - t < window_seconds
-                ]
-            else:
-                _rate_limit_store[ip] = []
-            
-            if len(_rate_limit_store[ip]) >= max_requests:
-                return JsonResponse({
-                    'status': 'error',
-                    'message': f'Too many requests. Try again in {window_seconds} seconds.'
-                }, status=429)
-            
-            _rate_limit_store[ip].append(now)
+
+            try:
+                # Fetch existing timestamps from cache
+                timestamps = cache.get(cache_key, [])
+
+                # Prune timestamps outside the current window
+                timestamps = [t for t in timestamps if now - t < window_seconds]
+
+                if len(timestamps) >= max_requests:
+                    return JsonResponse({
+                        'status': 'error',
+                        'message': f'Too many requests. Try again in {window_seconds} seconds.'
+                    }, status=429)
+
+                timestamps.append(now)
+                cache.set(cache_key, timestamps, timeout=window_seconds)
+            except Exception:
+                # Redis down — fail OPEN (allow request through)
+                logger.warning('Rate limiter cache unavailable — failing open for %s', ip)
+
             return view_func(request, *args, **kwargs)
         return wrapper
     return decorator
@@ -194,10 +208,20 @@ def check_auth(request):
     """
     Returns the current user's auth state from the server session.
     The frontend calls this on mount instead of trusting sessionStorage.
+
+    Cached for 30 seconds per user to avoid a DB hit on every poll.
     """
     if request.user.is_authenticated:
+        cache_key = f'auth_check:{request.user.id}'
+        try:
+            cached = cache.get(cache_key)
+            if cached:
+                return JsonResponse(cached)
+        except Exception:
+            logger.warning('Auth check cache unavailable — falling back to DB')
+
         pitch_count = DebateSession.objects.filter(user=request.user).count()
-        return JsonResponse({
+        response_data = {
             'status': 'success',
             'user': {
                 'id': request.user.id,
@@ -205,7 +229,12 @@ def check_auth(request):
                 'is_admin': request.user.is_superuser,
                 'pitch_count': pitch_count,
             }
-        })
+        }
+        try:
+            cache.set(cache_key, response_data, timeout=30)
+        except Exception:
+            pass  # Cache write failure is non-critical
+        return JsonResponse(response_data)
     return JsonResponse({
         'status': 'error',
         'message': 'Not authenticated'
@@ -230,6 +259,11 @@ def delete_account_api(request):
         }, status=401)
     
     user = request.user
+    # Invalidate auth cache before deletion — non-critical if cache is down
+    try:
+        cache.delete(f'auth_check:{user.id}')
+    except Exception:
+        pass
     # Cascade delete will remove DebateSession + GlobalTranscript
     user.delete()
     return JsonResponse({'status': 'success', 'message': 'Account permanently deleted.'})

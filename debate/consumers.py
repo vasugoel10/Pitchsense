@@ -19,6 +19,7 @@ import logging
 import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
+from django.core.cache import cache
 from .models import DebateSession, GlobalTranscript
 from .personas import PERSONAS, PERSONA_ORDER
 from .services.groq_service import stream_persona_response
@@ -145,7 +146,11 @@ class DebateConsumer(AsyncWebsocketConsumer):
             }))
 
     async def disconnect(self, close_code):
-        pass
+        logger.info(
+            "WebSocket disconnected: session=%s code=%s",
+            getattr(self, 'session_id', 'unknown'),
+            close_code,
+        )
 
     # ── Core debate logic ─────────────────────────────────────────────
 
@@ -323,7 +328,14 @@ class DebateConsumer(AsyncWebsocketConsumer):
                 asyncio.create_task(self._synthesize_and_send_audio(persona_key, turn, full_text, voice))
 
         except Exception as e:
-            logger.error(f"Persona {persona_key} streaming error: {e}", exc_info=True)
+            logger.error(
+                "Persona %s streaming error (session=%s, turn=%s): %s",
+                persona_key,
+                self.debate_session.id,
+                turn,
+                e,
+                exc_info=True,
+            )
             await self.send(text_data=json.dumps({
                 'type': 'persona_error',
                 'persona': persona_key,
@@ -400,6 +412,12 @@ class DebateConsumer(AsyncWebsocketConsumer):
                 session.scorecard = scorecard_data
             session.save()
             self.debate_session = session
+            # Invalidate auth cache — pitch count may affect limit display
+            if session.user_id:
+                try:
+                    cache.delete(f'auth_check:{session.user_id}')
+                except Exception:
+                    pass  # Cache failure is non-critical
 
     @database_sync_to_async
     def _append_transcript(self, role, content, turn_number, metadata=None):
