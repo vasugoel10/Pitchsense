@@ -130,7 +130,7 @@ async def simulate_user(ws_base: str, http_base: str, user_idx: int, num_pitches
     try:
         async with websockets.connect(
             ws_url,
-            additional_headers={"Cookie": cookie_header},
+            additional_headers={"Cookie": cookie_header, "Origin": http_base},
             open_timeout=10,
             close_timeout=5,
         ) as ws:
@@ -224,7 +224,7 @@ async def reconnect_storm(ws_base: str, http_base: str, num_reconnects: int = 10
         try:
             async with websockets.connect(
                 ws_url,
-                additional_headers={"Cookie": cookie_header},
+                additional_headers={"Cookie": cookie_header, "Origin": http_base},
                 open_timeout=5,
             ) as ws:
                 msg = json.loads(await asyncio.wait_for(ws.recv(), timeout=5))
