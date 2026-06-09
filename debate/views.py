@@ -279,7 +279,7 @@ def admin_sessions_api(request):
             'message': 'Unauthorized'
         }, status=403)
         
-    sessions = DebateSession.objects.select_related('user').all().order_by('-current_turn')
+    sessions = DebateSession.objects.select_related('user').all().order_by('-current_turn')[:100]
     
     session_list = []
     for s in sessions:

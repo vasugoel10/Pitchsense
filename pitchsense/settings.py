@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 if not SECRET_KEY:
-    if os.environ.get('DEBUG', 'True') == 'True':
+    if os.environ.get('DEBUG', 'False') == 'True':
         # Local dev only — generate a random key each restart
         from django.core.management.utils import get_random_secret_key
         SECRET_KEY = get_random_secret_key()
@@ -37,7 +37,7 @@ if not SECRET_KEY:
 
 # ── Core Settings ────────────────────────────────────────────────────────
 
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
@@ -225,6 +225,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Only active when DEBUG=False. Enforces HTTPS, HSTS, secure cookies.
 
 if not DEBUG:
+    # Validate critical API keys in production
+    assert GROQ_API_KEY, (
+        'GROQ_API_KEY environment variable is required in production. '
+        'Without it, the Groq service silently returns mock responses.'
+    )
+
     # Force HTTPS
     SECURE_SSL_REDIRECT = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
