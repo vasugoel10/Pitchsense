@@ -39,6 +39,7 @@ Thumbs.db
 .env.local
 
 # Misc
+.coverage
 .agent/
 .agents/
 .gsd/

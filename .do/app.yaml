@@ -1,0 +1,53 @@
+name: pitchsense
+region: blr
+
+services:
+  - name: web
+    github:
+      repo: vasugoel10/Pitchsense
+      branch: main
+      deploy_on_push: true
+    build_command: |
+      cd frontend && npm install && npm run build && cd .. &&
+      pip install -r requirements.txt &&
+      python manage.py collectstatic --noinput &&
+      python manage.py migrate
+    run_command: daphne pitchsense.asgi:application --bind 0.0.0.0 --port 8080 --workers 4
+    environment_slug: python
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    http_port: 8080
+    health_check:
+      http_path: /api/csrf/
+      timeout_seconds: 30
+    envs:
+      - key: DEBUG
+        value: "False"
+      - key: DJANGO_SECRET_KEY
+        type: SECRET
+        value: REPLACE_WITH_YOUR_SECRET_KEY
+      - key: GROQ_API_KEY
+        type: SECRET
+        value: REPLACE_WITH_YOUR_GROQ_KEY
+      - key: TAVILY_API_KEY
+        type: SECRET
+        value: REPLACE_WITH_YOUR_TAVILY_KEY
+      - key: ALLOWED_HOSTS
+        value: ${APP_DOMAIN}
+      - key: DATABASE_URL
+        scope: RUN_AND_BUILD_TIME
+        value: ${db.DATABASE_URL}
+      - key: REDIS_URL
+        scope: RUN_AND_BUILD_TIME
+        value: ${redis.REDIS_URL}
+
+databases:
+  - name: db
+    engine: PG
+    production: false
+    version: "16"
+
+  - name: redis
+    engine: REDIS
+    production: false
+    version: "7"
