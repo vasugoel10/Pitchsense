@@ -198,7 +198,7 @@ USE_TZ = True
 
 # ── Static Files ─────────────────────────────────────────────────────────
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 _frontend_build = BASE_DIR / 'frontend' / 'build'
