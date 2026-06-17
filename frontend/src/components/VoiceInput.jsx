@@ -1,45 +1,71 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-export default function VoiceInput({ activeMicTarget, onSend }) {
+export default function VoiceInput({ activeMicTarget, onResult }) {
   const [isRecording, setIsRecording] = useState(false);
   const [recognition, setRecognition] = useState(null);
+  
+  // Use a ref for the callback to prevent useEffect from re-triggering on every text update
+  const onResultRef = useRef(onResult);
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
   
   useEffect(() => {
     if (SpeechRecognition) {
       const rec = new SpeechRecognition();
-      rec.continuous = false;
-      rec.interimResults = false;
+      rec.continuous = true;
+      rec.interimResults = true;
       rec.lang = 'en-US';
       
+      rec.onstart = () => {
+        setIsRecording(true);
+      };
+
       rec.onresult = (event) => {
-        let finalTranscript = '';
+        let newFinalTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            newFinalTranscript += event.results[i][0].transcript + ' ';
+          }
         }
-        if (finalTranscript) {
-          onSend(finalTranscript);
+        if (newFinalTranscript.trim()) {
+          if (onResultRef.current) {
+            onResultRef.current(newFinalTranscript.trim());
+          }
         }
       };
 
-      rec.onend = () => setIsRecording(false);
+      rec.onend = () => {
+        setIsRecording(false);
+      };
+
       rec.onerror = (e) => {
         console.error('Speech recognition error', e);
         setIsRecording(false);
       };
       
       setRecognition(rec);
+
+      return () => {
+        try {
+          rec.abort();
+        } catch(e) {}
+      };
     }
-  }, [onSend]);
+  }, []);
 
   const toggleMic = () => {
     if (!recognition) return;
     if (isRecording) {
       recognition.stop();
     } else {
-      recognition.start();
-      setIsRecording(true);
+      try {
+        recognition.start();
+      } catch (err) {
+        console.error('Failed to start recognition', err);
+      }
     }
   };
 

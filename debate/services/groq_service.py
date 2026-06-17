@@ -20,6 +20,48 @@ logger = logging.getLogger(__name__)
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
 
+async def condense_pitch(pitch_content: str) -> str:
+    """
+    If a pitch is too long, use Groq to rephrase and condense it to under 2000 characters
+    while preserving the core value proposition, problem, target customer, moat, and business model.
+    """
+    if not settings.GROQ_API_KEY:
+        return pitch_content[:2000]
+
+    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+    system_prompt = (
+        "You are an expert pitch summarizer. The user has submitted a startup pitch that is too long. "
+        "Summarize and rephrase it to be under 2000 characters (approximately 300 words). "
+        "Ensure you preserve the core value proposition, problem, target customer, moat, and business model. "
+        "Output ONLY the rephrased pitch content. Do not include any preamble, introductions, or extra commentary."
+    )
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": pitch_content}
+    ]
+    models_to_try = [
+        "llama-3.1-8b-instant",
+        "llama-3.3-70b-versatile",
+        "mixtral-8x7b-32768"
+    ]
+    for model in models_to_try:
+        try:
+            response = await client.chat.completions.create(
+                messages=messages,
+                model=model,
+                temperature=0.3,
+                max_tokens=600,
+            )
+            summary = response.choices[0].message.content.strip()
+            if summary:
+                return summary[:2000]
+        except Exception as e:
+            logger.warning(f"Condense pitch model {model} failed: {e}. Trying next...")
+            continue
+
+    return pitch_content[:2000]
+
+
 async def stream_persona_response(persona_key, transcript_entries,
                                    turn_number=None, tavily_context=None, mode='panel'):
     """

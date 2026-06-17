@@ -66,7 +66,7 @@ export default function ControlBar() {
         </button>
 
         {/* Voice input */}
-        <VoiceInput onSend={handleVoiceSend} activeMicTarget={currentMode} />
+        <VoiceInput onResult={(text) => setInputValue(prev => prev ? prev + ' ' + text : text)} activeMicTarget={currentMode} />
 
         {/* Text input */}
         <div className="flex-1 relative">
@@ -86,6 +86,11 @@ export default function ControlBar() {
               caretColor: isPanel ? '#818cf8' : '#c084fc',
             }}
           />
+          {inputValue.length > 2000 && (
+            <div className="absolute right-3 bottom-full mb-1.5 text-[10px] text-amber-400 font-semibold bg-[#1a1307] px-2 py-1 rounded-lg border border-amber-500/20 shadow-lg backdrop-blur-sm animate-pulse">
+              ⚠️ Input is {inputValue.length} chars. AI will condense it to under 2,000 characters.
+            </div>
+          )}
           {isProcessing && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
               {[0, 1, 2].map(i => (

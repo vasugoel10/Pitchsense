@@ -252,9 +252,22 @@ def build_messages(persona_key, transcript_entries, turn_number=None, tavily_con
 
     for entry in transcript_entries:
         if entry.role == 'user':
+            content_to_use = entry.content
+            if entry.metadata and 'rephrased_content' in entry.metadata:
+                rephrased = entry.metadata['rephrased_content']
+                if entry.content.startswith("[Founder speaking directly to"):
+                    prefix_end = entry.content.find("]: ")
+                    if prefix_end != -1:
+                        prefix = entry.content[:prefix_end + 3]
+                        content_to_use = f"{prefix}{rephrased}"
+                    else:
+                        content_to_use = rephrased
+                else:
+                    content_to_use = rephrased
+
             messages.append({
                 'role': 'user',
-                'content': entry.content,
+                'content': content_to_use,
             })
         elif entry.role == persona_key:
             # Own past responses → assistant (model continuity)

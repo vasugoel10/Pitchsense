@@ -162,9 +162,16 @@ class DebateConsumer(AsyncWebsocketConsumer):
             await self.send(text_data=json.dumps({'type': 'error', 'message': 'Empty pitch content.'}))
             return
 
-        # Input sanitization
-        if len(content) > 2000:
-            content = content[:2000]
+        # Input sanitization and AI rephrasing for long pitches
+        original_len = len(content)
+        rephrased_content = None
+        if original_len > 2000:
+            try:
+                from .services.groq_service import condense_pitch
+                rephrased_content = await condense_pitch(content)
+            except Exception as e:
+                logger.error(f"Failed to condense pitch using AI: {e}", exc_info=True)
+                rephrased_content = content[:2000]  # Fallback to hard truncation
 
         # ── Per-pitch rate limit ──────────────────────────────────────
         now = time.time()
@@ -236,7 +243,10 @@ class DebateConsumer(AsyncWebsocketConsumer):
             mode=mode,
             target_persona=target_persona if mode == 'deep_dive' else None
         )
-        await self._append_transcript('user', transcript_content, turn)
+        metadata = None
+        if rephrased_content:
+            metadata = {'rephrased_content': rephrased_content}
+        await self._append_transcript('user', transcript_content, turn, metadata=metadata)
 
         await self.send(text_data=json.dumps({
             'type': 'turn_started',
@@ -245,7 +255,8 @@ class DebateConsumer(AsyncWebsocketConsumer):
         }))
 
         # ── Fire personas in parallel ─────────────────────────────────
-        tavily_context = await get_competitor_context(content)
+        query_content = rephrased_content if rephrased_content else content
+        tavily_context = await get_competitor_context(query_content)
 
         async def fire_persona(pk):
             ctx = tavily_context if pk == 'competitor' else None
